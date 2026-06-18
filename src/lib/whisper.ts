@@ -2,17 +2,17 @@
 // First call downloads the model from HuggingFace and caches it in the browser's
 // Cache API — subsequent calls use the cache instantly.
 //
-// We use whisper-base.en (quantized ~42 MB): noticeably more accurate than tiny,
-// while staying small/fast enough to download and run in the browser.
+// We use whisper-small.en (quantized ~240 MB): the most accurate Whisper model
+// that's still practical to download and run in the browser. Much better word
+// recognition than base/tiny, at the cost of a larger first-load download and
+// slower transcription.
 //
 // NOTE: @xenova/transformers is imported *dynamically* (not at the top level).
 // It's a large package that pulls in Node-only deps (onnxruntime-node, sharp);
 // a static import makes Vite's dependency scanner hang on startup. Loading it
 // lazily inside loadWhisper() keeps it out of the eager import graph.
 
-// More accurate than 'tiny'. Bump to 'Xenova/whisper-small.en' for even higher
-// accuracy at the cost of a larger download and ~3-4x slower transcription.
-const MODEL_ID = 'Xenova/whisper-base.en'
+const MODEL_ID = 'Xenova/whisper-small.en'
 
 const WHISPER_SAMPLE_RATE = 16000
 

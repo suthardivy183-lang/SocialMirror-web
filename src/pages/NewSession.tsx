@@ -452,7 +452,7 @@ export default function NewSession() {
                 <div style={{ height: 4, background: 'rgba(127,119,221,0.2)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${modelProgress}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.3s' }} />
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>~42 MB download, cached after first load</p>
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>~240 MB download (high-accuracy model), cached after first load</p>
               </div>
             )}
             {modelReady && (
