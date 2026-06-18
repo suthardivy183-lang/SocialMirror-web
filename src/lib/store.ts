@@ -12,13 +12,17 @@ const SESSIONS_KEY = 'sm_local_sessions'
 
 // ---------- AUTH ----------
 
-export async function getUser(): Promise<StoredUser | null> {
+export async function getUser(): Promise<StoredUser> {
   if (isConfigured) {
     const { data } = await supabase.auth.getUser()
-    return data.user ? { id: data.user.id, email: data.user.email ?? '' } : null
+    if (data.user) return { id: data.user.id, email: data.user.email ?? '' }
   }
+  // Local mode: always return a persistent guest user, creating one if needed
   const raw = localStorage.getItem(USER_KEY)
-  return raw ? JSON.parse(raw) : null
+  if (raw) return JSON.parse(raw)
+  const guest: StoredUser = { id: crypto.randomUUID(), email: 'guest@local' }
+  localStorage.setItem(USER_KEY, JSON.stringify(guest))
+  return guest
 }
 
 export async function signUp(email: string, password: string): Promise<void> {

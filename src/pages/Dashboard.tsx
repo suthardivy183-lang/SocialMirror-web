@@ -27,13 +27,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     store.getUser().then(user => {
-      if (!user) { navigate('/auth'); return }
       store.listSessions(user.id).then(rows => {
         setSessions(rows as unknown as Session[])
         setLoading(false)
       })
     })
-  }, [navigate])
+  }, [])
 
   async function del(id: string, e: React.MouseEvent) {
     e.preventDefault()

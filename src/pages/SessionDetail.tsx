@@ -31,12 +31,11 @@ export default function SessionDetail() {
 
   useEffect(() => {
     store.getUser().then(async user => {
-      if (!user) { navigate('/auth'); return }
       const row = await store.getSession(id!, user.id)
       setSession(row as unknown as Session | null)
       setLoading(false)
     })
-  }, [id, navigate])
+  }, [id])
 
   async function saveName(speakerID: number) {
     if (!session) return

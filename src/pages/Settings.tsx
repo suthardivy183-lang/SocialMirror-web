@@ -14,11 +14,10 @@ export default function Settings() {
 
   useEffect(() => {
     store.getUser().then(user => {
-      if (!user) { navigate('/auth'); return }
       setEmail(user.email)
       setUserId(user.id)
     })
-  }, [navigate])
+  }, [])
 
   async function signOut() { await store.signOut(); navigate('/auth') }
   async function deleteAll() {

@@ -25,11 +25,11 @@ export default function Landing() {
           <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: '-0.3px' }}>SocialMirror</span>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <Link to="/auth" style={{
+          <Link to="/dashboard" style={{
             padding: '8px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500,
             border: '1px solid var(--border)', color: 'var(--text)',
           }}>Log in</Link>
-          <Link to="/auth?mode=signup" style={{
+          <Link to="/dashboard" style={{
             padding: '8px 18px', borderRadius: 8, fontSize: 14, fontWeight: 700,
             background: 'var(--accent)', color: '#fff',
           }}>Sign up free</Link>
@@ -60,11 +60,11 @@ export default function Landing() {
           and actionable coaching — all processed on your device.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/auth?mode=signup" style={{
+          <Link to="/dashboard" style={{
             padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 700,
             background: 'var(--accent)', color: '#fff',
           }}>Start for free</Link>
-          <Link to="/auth" style={{
+          <Link to="/dashboard" style={{
             padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 600,
             border: '1px solid var(--border)', color: 'var(--text)',
           }}>Log in</Link>

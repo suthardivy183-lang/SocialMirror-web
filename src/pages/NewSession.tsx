@@ -235,7 +235,6 @@ export default function NewSession() {
 
   async function saveSession(finalLines: Line[], durationSec: number, overridePauses?: number[]) {
     const user = await store.getUser()
-    if (!user) { navigate('/auth'); return }
 
     const speakerIDs = [...new Set(finalLines.map(l => l.speaker))]
     const allWords = finalLines.reduce((s, l) => s + l.text.split(' ').length, 0)

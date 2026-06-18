@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import * as store from '../lib/store'
 import type { DbSession } from '../lib/store'
 import type { SpeakerFeatures } from '../lib/coaching'
@@ -46,15 +45,13 @@ function analyze(sessions: DbSession[]): Agg {
 }
 
 export default function Trends() {
-  const navigate = useNavigate()
   const [agg, setAgg] = useState<Agg | null>(null)
 
   useEffect(() => {
     store.getUser().then(user => {
-      if (!user) { navigate('/auth'); return }
       store.listSessions(user.id).then(rows => setAgg(analyze(rows)))
     })
-  }, [navigate])
+  }, [])
 
   if (!agg) return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Loading…</div>
 
