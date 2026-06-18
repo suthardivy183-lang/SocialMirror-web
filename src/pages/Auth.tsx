@@ -1,4 +1,4 @@
-import { useState, CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import * as store from '../lib/store'
 

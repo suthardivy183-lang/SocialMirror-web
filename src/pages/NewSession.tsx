@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as store from '../lib/store'
 import { speakerColor } from '../lib/colors'
 import { generateReport, countHedges, scoreSpeaker, pauseStats, type SpeakerFeatures } from '../lib/coaching'
+import { loadWhisper, transcribeFile, type Segment } from '../lib/whisper'
 
 const SESSION_TYPES = [
   { value: 'meeting', label: 'Meeting', icon: '👥' },
@@ -15,24 +16,17 @@ const SESSION_TYPES = [
 
 interface Line { id: string; speaker: number; text: string; time: number }
 
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition
-    webkitSpeechRecognition: typeof SpeechRecognition
-  }
-}
-
 /** Autocorrelation pitch detector (returns Hz, or 0 if no clear pitch). */
 function detectPitch(buf: Float32Array, sampleRate: number): number {
   const SIZE = buf.length
   let rms = 0
   for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i]
   rms = Math.sqrt(rms / SIZE)
-  if (rms < 0.01) return 0 // too quiet
+  if (rms < 0.01) return 0
 
   let bestOffset = -1, bestCorr = 0
-  const minOffset = Math.floor(sampleRate / 350) // ~350 Hz max
-  const maxOffset = Math.floor(sampleRate / 75)  // ~75 Hz min
+  const minOffset = Math.floor(sampleRate / 350)
+  const maxOffset = Math.floor(sampleRate / 75)
   for (let offset = minOffset; offset <= maxOffset; offset++) {
     let corr = 0
     for (let i = 0; i < SIZE - offset; i++) corr += buf[i] * buf[i + offset]
@@ -50,17 +44,41 @@ const stddev = (a: number[]) => {
   return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / a.length)
 }
 
+/**
+ * Naively assign speakers to transcript segments by detecting long pauses.
+ * Gaps > SWITCH_GAP seconds trigger a speaker change (round-robin).
+ */
+function assignSpeakers(segments: Segment[], totalSpeakers: number): Line[] {
+  const SWITCH_GAP = 1.5 // seconds of silence triggers speaker change
+  let speaker = 0
+  const lines: Line[] = []
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]
+    if (!seg.text) continue
+    if (i > 0) {
+      const gap = seg.start - segments[i - 1].end
+      if (gap >= SWITCH_GAP) speaker = (speaker + 1) % Math.max(2, totalSpeakers)
+    }
+    lines.push({ id: `l${i}`, speaker, text: seg.text, time: seg.start })
+  }
+  return lines
+}
 
 export default function NewSession() {
   const navigate = useNavigate()
-  const [phase, setPhase] = useState<'setup' | 'recording' | 'done'>('setup')
+  const [mode, setMode] = useState<'live' | 'file'>('live')
+  const [phase, setPhase] = useState<'setup' | 'recording' | 'transcribing' | 'done'>('setup')
   const [name, setName] = useState('Untitled session')
   const [type, setType] = useState('meeting')
   const [elapsed, setElapsed] = useState(0)
   const [rms, setRms] = useState(0)
   const [lines, setLines] = useState<Line[]>([])
   const [activeSpeaker, setActiveSpeaker] = useState(0)
-  const [speakerCount, setSpeakerCount] = useState(1)
+  const [speakerCount, setSpeakerCount] = useState(2)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [modelProgress, setModelProgress] = useState(0)
+  const [modelReady, setModelReady] = useState(false)
+  const [transcribeProgress, setTranscribeProgress] = useState('')
 
   const ctxRef = useRef<AudioContext | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -72,23 +90,29 @@ export default function NewSession() {
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const speakerRef = useRef(0)
   const lineIdRef = useRef(0)
-  // Acoustic accumulators per speaker: pitch samples + energy samples
   const acousticRef = useRef<Record<number, { pitches: number[]; energies: number[] }>>({})
-  // Completed pause durations (seconds) for silence/pause analysis
   const pausesRef = useRef<number[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [lines])
 
-  async function start() {
+  // Pre-load Whisper model when user switches to file mode
+  useEffect(() => {
+    if (mode !== 'file' || modelReady) return
+    loadWhisper((pct) => setModelProgress(pct)).then(() => setModelReady(true))
+  }, [mode, modelReady])
+
+  // ── LIVE RECORDING ──────────────────────────────────────────────────────────
+
+  async function startLive() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     streamRef.current = stream
     setPhase('recording')
     startRef.current = Date.now()
     timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 500)
 
-    // Audio analyser for RMS visualiser + pitch detection
     const ctx = new AudioContext()
     ctxRef.current = ctx
     const src = ctx.createMediaStreamSource(stream)
@@ -98,9 +122,9 @@ export default function NewSession() {
     const freqBuf = new Uint8Array(analyser.frequencyBinCount)
     const timeBuf = new Float32Array(analyser.fftSize)
 
-    const MIN_PAUSE_MS = 500       // gaps longer than this count as a pause
-    let silenceStart = 0           // when the current silent stretch began
-    let switched = false           // speaker already toggled for this stretch
+    const MIN_PAUSE_MS = 500
+    let silenceStart = 0
+    let switched = false
     pollRef.current = setInterval(() => {
       analyser.getByteFrequencyData(freqBuf)
       analyser.getFloatTimeDomainData(timeBuf)
@@ -109,7 +133,6 @@ export default function NewSession() {
       const now = Date.now()
 
       if (r < 0.05) {
-        // In silence
         if (!silenceStart) { silenceStart = now; switched = false }
         else if (!switched && now - silenceStart > 800) {
           speakerRef.current = (speakerRef.current + 1) % Math.max(2, speakerCount)
@@ -117,13 +140,11 @@ export default function NewSession() {
           switched = true
         }
       } else {
-        // Speech resumed — close out any pause that just ended
         if (silenceStart) {
           const dur = now - silenceStart
           if (dur >= MIN_PAUSE_MS) pausesRef.current.push(dur / 1000)
           silenceStart = 0
         }
-        // Accumulate acoustic features for the active speaker while they talk
         const spk = speakerRef.current
         const acc = acousticRef.current[spk] ?? { pitches: [], energies: [] }
         const pitch = detectPitch(timeBuf, ctx.sampleRate)
@@ -134,7 +155,6 @@ export default function NewSession() {
       }
     }, 100)
 
-    // Web Speech API for transcription
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (SR) {
       const rec = new SR()
@@ -165,18 +185,58 @@ export default function NewSession() {
     }
   }
 
-  async function stop() {
+  async function stopLive() {
     recognitionRef.current?.stop()
     ctxRef.current?.close()
     if (timerRef.current) clearInterval(timerRef.current)
     if (pollRef.current) clearInterval(pollRef.current)
     streamRef.current?.getTracks().forEach(t => t.stop())
     setPhase('done')
+    await saveSession(linesRef.current, elapsed)
+  }
 
+  // ── FILE TRANSCRIPTION ──────────────────────────────────────────────────────
+
+  const startFile = useCallback(async () => {
+    if (!selectedFile || !modelReady) return
+    setPhase('transcribing')
+    setTranscribeProgress('Reading audio file…')
+
+    try {
+      setTranscribeProgress('Transcribing with Whisper… (may take 30–90s for long files)')
+      const segments = await transcribeFile(selectedFile)
+
+      setTranscribeProgress('Assigning speakers…')
+      const finalLines = assignSpeakers(segments, speakerCount)
+      linesRef.current = finalLines
+      setLines(finalLines)
+
+      // Infer duration from last segment timestamp or filename
+      const duration = segments.length > 0
+        ? Math.ceil(segments[segments.length - 1].end)
+        : 0
+
+      // Compute pauses from gaps between segments
+      const pauses: number[] = []
+      for (let i = 1; i < segments.length; i++) {
+        const gap = segments[i].start - segments[i - 1].end
+        if (gap >= 0.5) pauses.push(gap)
+      }
+
+      setPhase('done')
+      await saveSession(finalLines, duration, pauses)
+    } catch (err) {
+      console.error('Transcription failed:', err)
+      setTranscribeProgress('Error: ' + (err instanceof Error ? err.message : String(err)))
+    }
+  }, [selectedFile, modelReady, speakerCount, name, type])
+
+  // ── SHARED SAVE ─────────────────────────────────────────────────────────────
+
+  async function saveSession(finalLines: Line[], durationSec: number, overridePauses?: number[]) {
     const user = await store.getUser()
     if (!user) { navigate('/auth'); return }
 
-    const finalLines = linesRef.current
     const speakerIDs = [...new Set(finalLines.map(l => l.speaker))]
     const allWords = finalLines.reduce((s, l) => s + l.text.split(' ').length, 0)
 
@@ -199,7 +259,6 @@ export default function NewSession() {
       }
     })
 
-    // Dominance + confidence scoring (needs the full set)
     for (const s of speakers) {
       const { dominance, confidence } = scoreSpeaker(s, speakers)
       s.dominanceScore = dominance
@@ -207,15 +266,18 @@ export default function NewSession() {
     }
 
     const report = generateReport(speakers, 0)
-    const pauses = pauseStats(pausesRef.current, elapsed)
+    const pauses = pauseStats(overridePauses ?? pausesRef.current, durationSec)
     const session = {
       id: crypto.randomUUID(),
       user_id: user.id,
       name,
       session_type: type,
-      duration_seconds: elapsed,
+      duration_seconds: durationSec,
       speaker_count: speakerIDs.length || 1,
-      transcript: finalLines.map(l => ({ id: l.id, speakerID: l.speaker, text: l.text, startTime: l.time, endTime: l.time + 2 })),
+      transcript: finalLines.map(l => ({
+        id: l.id, speakerID: l.speaker, text: l.text,
+        startTime: l.time, endTime: l.time + 2,
+      })),
       speakers,
       report,
       pauses,
@@ -225,7 +287,11 @@ export default function NewSession() {
     navigate(`/session/${session.id}`)
   }
 
+  // ── HELPERS ─────────────────────────────────────────────────────────────────
+
   function fmt(s: number) { return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` }
+
+  // ── DONE/SAVING SPLASH ──────────────────────────────────────────────────────
 
   if (phase === 'done') return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
@@ -236,66 +302,29 @@ export default function NewSession() {
     </div>
   )
 
-  if (phase === 'setup') return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 460 }}>
-        <button onClick={() => navigate('/dashboard')} style={{
-          background: 'none', border: 'none', color: 'var(--muted)', fontSize: 14, marginBottom: 32,
-        }}>← Back</button>
+  // ── TRANSCRIBING SPLASH ─────────────────────────────────────────────────────
 
-        <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.03em' }}>New session</h1>
-        <p style={{ color: 'var(--muted)', marginBottom: 32, fontSize: 14 }}>Uses your browser's built-in speech recognition.</p>
-
-        <label style={{ display: 'block', marginBottom: 20 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 8, letterSpacing: '0.06em' }}>SESSION NAME</span>
-          <input value={name} onChange={e => setName(e.target.value)} style={{
-            width: '100%', background: 'var(--bg-input)', border: '1.5px solid var(--border)',
-            borderRadius: 10, padding: '12px 16px', fontSize: 16, color: 'var(--text)', outline: 'none',
-          }} />
-        </label>
-
-        <div style={{ marginBottom: 16 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 10, letterSpacing: '0.06em' }}>SPEAKERS</span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {[1,2,3,4].map(n => (
-              <button key={n} onClick={() => setSpeakerCount(n)} style={{
-                flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 700,
-                border: `1.5px solid ${speakerCount === n ? 'var(--accent)' : 'var(--border)'}`,
-                background: speakerCount === n ? 'var(--accent-dim)' : 'var(--bg-input)',
-                color: speakerCount === n ? 'var(--accent)' : 'var(--muted)',
-              }}>{n}</button>
-            ))}
-          </div>
+  if (phase === 'transcribing') return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ textAlign: 'center', maxWidth: 420 }}>
+        <div style={{ fontSize: 48, marginBottom: 20 }}>🎙️</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Transcribing audio</h2>
+        <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>{transcribeProgress}</p>
+        <div style={{ height: 6, background: 'var(--bg-subtle)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 3, animation: 'indeterminate 1.5s ease-in-out infinite' }} />
         </div>
-
-        <div style={{ marginBottom: 36 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 10, letterSpacing: '0.06em' }}>SESSION TYPE</span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            {SESSION_TYPES.map(t => (
-              <button key={t.value} onClick={() => setType(t.value)} style={{
-                padding: '12px 8px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                border: `1.5px solid ${type === t.value ? 'var(--accent)' : 'var(--border)'}`,
-                background: type === t.value ? 'var(--accent-dim)' : 'var(--bg-input)',
-                color: type === t.value ? 'var(--accent)' : 'var(--muted)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-              }}>
-                <span style={{ fontSize: 22 }}>{t.icon}</span>{t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button onClick={start} style={{
-          width: '100%', padding: 15, borderRadius: 12, fontSize: 16, fontWeight: 700,
-          background: 'var(--accent)', color: '#fff', border: 'none',
-        }}>🎙️ Start recording</button>
+        <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 16 }}>
+          Whisper runs entirely in your browser — no audio is uploaded anywhere.
+        </p>
       </div>
+      <style>{`@keyframes indeterminate{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}`}</style>
     </div>
   )
 
-  return (
+  // ── LIVE RECORDING VIEW ─────────────────────────────────────────────────────
+
+  if (phase === 'recording') return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
       <div style={{
         padding: '16px 24px', borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', gap: 16,
@@ -305,13 +334,12 @@ export default function NewSession() {
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--red)', animation: 'pulse 1.4s infinite' }} />
         <span style={{ fontWeight: 700, fontSize: 16, flex: 1 }}>{name}</span>
         <span style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 700, color: 'var(--accent)' }}>{fmt(elapsed)}</span>
-        <button onClick={stop} style={{
+        <button onClick={stopLive} style={{
           padding: '9px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
           background: 'var(--red)', color: '#fff', border: 'none',
         }}>Stop</button>
       </div>
 
-      {/* RMS bar + speaker */}
       <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: 1, height: 5, background: 'var(--bg-subtle)', borderRadius: 3, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${Math.min(rms * 100, 100)}%`, background: 'var(--accent)', borderRadius: 3, transition: 'width 0.08s' }} />
@@ -322,7 +350,6 @@ export default function NewSession() {
         </div>
       </div>
 
-      {/* Live transcript */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', maxWidth: 780, width: '100%', margin: '0 auto' }}>
         {lines.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--muted)', marginTop: 80, fontSize: 15 }}>
@@ -345,6 +372,146 @@ export default function NewSession() {
       </div>
 
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}`}</style>
+    </div>
+  )
+
+  // ── SETUP VIEW ──────────────────────────────────────────────────────────────
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ width: '100%', maxWidth: 460 }}>
+        <button onClick={() => navigate('/dashboard')} style={{
+          background: 'none', border: 'none', color: 'var(--muted)', fontSize: 14, marginBottom: 32,
+        }}>← Back</button>
+
+        <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 24, letterSpacing: '-0.03em' }}>New session</h1>
+
+        {/* Mode toggle */}
+        <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: 12, padding: 4, marginBottom: 28, border: '1.5px solid var(--border)' }}>
+          {(['live', 'file'] as const).map(m => (
+            <button key={m} onClick={() => setMode(m)} style={{
+              flex: 1, padding: '10px 0', borderRadius: 9, fontSize: 14, fontWeight: 700,
+              background: mode === m ? 'var(--accent)' : 'transparent',
+              color: mode === m ? '#fff' : 'var(--muted)', border: 'none',
+              transition: 'all 0.15s',
+            }}>
+              {m === 'live' ? '🎙️ Live mic' : '📁 Upload file'}
+            </button>
+          ))}
+        </div>
+
+        <label style={{ display: 'block', marginBottom: 20 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 8, letterSpacing: '0.06em' }}>SESSION NAME</span>
+          <input value={name} onChange={e => setName(e.target.value)} style={{
+            width: '100%', background: 'var(--bg-input)', border: '1.5px solid var(--border)',
+            borderRadius: 10, padding: '12px 16px', fontSize: 16, color: 'var(--text)', outline: 'none',
+          }} />
+        </label>
+
+        <div style={{ marginBottom: 16 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 10, letterSpacing: '0.06em' }}>SPEAKERS</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[1, 2, 3, 4].map(n => (
+              <button key={n} onClick={() => setSpeakerCount(n)} style={{
+                flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                border: `1.5px solid ${speakerCount === n ? 'var(--accent)' : 'var(--border)'}`,
+                background: speakerCount === n ? 'var(--accent-dim)' : 'var(--bg-input)',
+                color: speakerCount === n ? 'var(--accent)' : 'var(--muted)',
+              }}>{n}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 28 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 10, letterSpacing: '0.06em' }}>SESSION TYPE</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {SESSION_TYPES.map(t => (
+              <button key={t.value} onClick={() => setType(t.value)} style={{
+                padding: '12px 8px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                border: `1.5px solid ${type === t.value ? 'var(--accent)' : 'var(--border)'}`,
+                background: type === t.value ? 'var(--accent-dim)' : 'var(--bg-input)',
+                color: type === t.value ? 'var(--accent)' : 'var(--muted)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+              }}>
+                <span style={{ fontSize: 22 }}>{t.icon}</span>{t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* FILE UPLOAD SECTION */}
+        {mode === 'file' && (
+          <div style={{ marginBottom: 24 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 10, letterSpacing: '0.06em' }}>AUDIO FILE</span>
+
+            {/* Model loading indicator */}
+            {!modelReady && (
+              <div style={{ marginBottom: 14, padding: '10px 14px', background: 'var(--accent-dim)', borderRadius: 10, border: '1px solid var(--accent)' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', marginBottom: 6 }}>
+                  Loading Whisper AI model… {modelProgress > 0 ? `${Math.round(modelProgress)}%` : ''}
+                </div>
+                <div style={{ height: 4, background: 'rgba(127,119,221,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${modelProgress}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.3s' }} />
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>~75 MB download, cached after first load</p>
+              </div>
+            )}
+            {modelReady && (
+              <div style={{ fontSize: 12, color: 'var(--green)', marginBottom: 10, fontWeight: 600 }}>✓ Whisper model ready</div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*,.mp3,.mp4,.m4a,.wav,.ogg,.webm,.aac,.flac"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const f = e.target.files?.[0] ?? null
+                setSelectedFile(f)
+                if (f && !name.startsWith('Untitled')) return
+                if (f) setName(f.name.replace(/\.[^.]+$/, ''))
+              }}
+            />
+            <button onClick={() => fileInputRef.current?.click()} style={{
+              width: '100%', padding: '20px 16px', borderRadius: 12, border: `2px dashed ${selectedFile ? 'var(--accent)' : 'var(--border)'}`,
+              background: selectedFile ? 'var(--accent-dim)' : 'var(--bg-input)', color: selectedFile ? 'var(--accent)' : 'var(--muted)',
+              fontSize: 14, fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ fontSize: 28 }}>{selectedFile ? '🎵' : '📂'}</span>
+              {selectedFile ? selectedFile.name : 'Click to choose an audio file'}
+              <span style={{ fontSize: 12, opacity: 0.7 }}>
+                {selectedFile
+                  ? `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB`
+                  : 'MP3, M4A, WAV, OGG, AAC, FLAC…'}
+              </span>
+            </button>
+
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10, lineHeight: 1.5 }}>
+              Whisper runs entirely in your browser. Audio is never uploaded to any server.
+            </p>
+          </div>
+        )}
+
+        {/* CTA button */}
+        {mode === 'live' ? (
+          <button onClick={startLive} style={{
+            width: '100%', padding: 15, borderRadius: 12, fontSize: 16, fontWeight: 700,
+            background: 'var(--accent)', color: '#fff', border: 'none',
+          }}>🎙️ Start recording</button>
+        ) : (
+          <button
+            onClick={startFile}
+            disabled={!selectedFile || !modelReady}
+            style={{
+              width: '100%', padding: 15, borderRadius: 12, fontSize: 16, fontWeight: 700,
+              background: 'var(--accent)', color: '#fff', border: 'none',
+              opacity: (!selectedFile || !modelReady) ? 0.45 : 1,
+            }}
+          >
+            {!modelReady ? 'Waiting for model…' : !selectedFile ? 'Choose a file first' : '🚀 Transcribe file'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
