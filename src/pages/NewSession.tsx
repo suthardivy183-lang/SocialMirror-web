@@ -203,7 +203,7 @@ export default function NewSession() {
     setTranscribeProgress('Reading audio file…')
 
     try {
-      setTranscribeProgress('Transcribing with Whisper… (may take 30–90s for long files)')
+      setTranscribeProgress('Boosting quiet audio and transcribing with Whisper… (may take a minute for long files)')
       const segments = await transcribeFile(selectedFile)
 
       setTranscribeProgress('Assigning speakers…')
@@ -452,7 +452,7 @@ export default function NewSession() {
                 <div style={{ height: 4, background: 'rgba(127,119,221,0.2)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${modelProgress}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.3s' }} />
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>~75 MB download, cached after first load</p>
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>~42 MB download, cached after first load</p>
               </div>
             )}
             {modelReady && (
