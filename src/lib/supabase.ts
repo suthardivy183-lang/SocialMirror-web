@@ -1,6 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 
-export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+const url = import.meta.env.VITE_SUPABASE_URL ?? ''
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
+
+export const supabase = createClient(url, key)
+export const isConfigured = url !== '' && !url.includes('YOUR_PROJECT')

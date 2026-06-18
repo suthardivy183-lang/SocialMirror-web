@@ -1,11 +1,2 @@
-export const SPEAKER_COLORS = [
-  '#7F77DD', // purple (primary)
-  '#1D9E75', // teal
-  '#D85A30', // orange
-  '#BA7517', // amber
-  '#378ADD', // blue
-]
-
-export function speakerColor(index: number): string {
-  return SPEAKER_COLORS[index % SPEAKER_COLORS.length]
-}
+export const SPEAKER_COLORS = ['#7F77DD', '#1D9E75', '#D85A30', '#BA7517', '#378ADD']
+export const speakerColor = (i: number) => SPEAKER_COLORS[i % SPEAKER_COLORS.length]
