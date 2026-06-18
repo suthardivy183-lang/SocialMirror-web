@@ -140,7 +140,7 @@ export interface TranscribeProgress {
  * after each chunk so the UI can show real progress instead of looking frozen.
  */
 export async function transcribeFile(
-  file: File,
+  file: Blob,
   onProgress?: (p: TranscribeProgress) => void,
 ): Promise<Segment[]> {
   if (!_pipe) throw new Error('Call loadWhisper() first')
