@@ -129,22 +129,15 @@ export interface TranscribeProgress {
   secondsTotal: number
 }
 
-/**
- * Transcribes an audio File/Blob.
- * Returns segments with start/end timestamps.
- *
- * The audio is mixed to mono, resampled to 16 kHz, and loudness-normalized so
- * quiet recordings transcribe as accurately as loud ones.
- *
- * Whisper processes long audio in sequential 30 s chunks. `onProgress` fires
- * after each chunk so the UI can show real progress instead of looking frozen.
- */
-export async function transcribeFile(
-  file: Blob,
-  onProgress?: (p: TranscribeProgress) => void,
-): Promise<Segment[]> {
-  if (!_pipe) throw new Error('Call loadWhisper() first')
+/** Sample rate Whisper (and the diarizer) expect. */
+export const SAMPLE_RATE = WHISPER_SAMPLE_RATE
 
+/**
+ * Decode an audio Blob to a mono, 16 kHz, loudness-normalized Float32Array.
+ * Exposed separately so the same buffer can be reused for diarization without
+ * decoding twice.
+ */
+export async function decodeAudio(file: Blob): Promise<Float32Array> {
   const arrayBuffer = await file.arrayBuffer()
   const audioCtx = new AudioContext()
   const decoded = await audioCtx.decodeAudioData(arrayBuffer)
@@ -152,12 +145,25 @@ export async function transcribeFile(
 
   const mono = toMono(decoded)
   const audio16k = resampleTo16k(mono, decoded.sampleRate)
-  const normalized = normalizeLoudness(audio16k)
+  return normalizeLoudness(audio16k)
+}
 
-  const secondsTotal = normalized.length / WHISPER_SAMPLE_RATE
+/**
+ * Transcribes prepared 16 kHz audio. Returns segments with start/end timestamps.
+ *
+ * Whisper processes long audio in sequential 30 s chunks. `onProgress` fires
+ * after each chunk so the UI can show real progress instead of looking frozen.
+ */
+export async function transcribeAudio(
+  audio16k: Float32Array,
+  onProgress?: (p: TranscribeProgress) => void,
+): Promise<Segment[]> {
+  if (!_pipe) throw new Error('Call loadWhisper() first')
+
+  const secondsTotal = audio16k.length / WHISPER_SAMPLE_RATE
   // Mirror the library's chunking math so we can estimate total chunk count.
   const jump = WHISPER_SAMPLE_RATE * (CHUNK_LENGTH_S - 2 * STRIDE_LENGTH_S)
-  const totalChunks = Math.max(1, Math.ceil(normalized.length / jump))
+  const totalChunks = Math.max(1, Math.ceil(audio16k.length / jump))
   let chunksDone = 0
 
   // The library's call signature is a huge union that doesn't include a bare
@@ -175,7 +181,7 @@ export async function transcribeFile(
     chunks?: Array<{ text: string; timestamp: [number, number] }>
   }>
 
-  const result = await asr(normalized, {
+  const result = await asr(audio16k, {
     return_timestamps: true,
     chunk_length_s: CHUNK_LENGTH_S,
     stride_length_s: STRIDE_LENGTH_S,
@@ -205,4 +211,17 @@ export async function transcribeFile(
   }
 
   return []
+}
+
+/**
+ * Convenience: decode + transcribe an audio Blob in one call.
+ * The audio is mixed to mono, resampled to 16 kHz, and loudness-normalized so
+ * quiet recordings transcribe as accurately as loud ones.
+ */
+export async function transcribeFile(
+  file: Blob,
+  onProgress?: (p: TranscribeProgress) => void,
+): Promise<Segment[]> {
+  const audio16k = await decodeAudio(file)
+  return transcribeAudio(audio16k, onProgress)
 }

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import * as store from '../lib/store'
 import { speakerColor } from '../lib/colors'
 import { generateReport, countHedges, scoreSpeaker, pauseStats, type SpeakerFeatures } from '../lib/coaching'
-import { loadWhisper, transcribeFile, type Segment } from '../lib/whisper'
+import { loadWhisper, decodeAudio, transcribeAudio, type Segment } from '../lib/whisper'
+import { loadDiarizer, diarize } from '../lib/diarization'
 
 const SESSION_TYPES = [
   { value: 'meeting', label: 'Meeting', icon: '👥' },
@@ -208,16 +209,18 @@ export default function NewSession() {
 
   // ── WHISPER TRANSCRIPTION (file upload + device capture share this) ──────────
 
-  /** Run Whisper on an audio Blob, assign speakers, and save the session. */
+  /** Decode → transcribe → diarize-by-voice → save. Shared by file + device. */
   const runTranscription = useCallback(async (audio: Blob, noSpeechHint: string) => {
     setPhase('transcribing')
     setTranscribePct(0)
     setTranscribeProgress('Reading and boosting audio…')
 
+    const mins = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+
     try {
-      const segments = await transcribeFile(audio, ({ fraction, secondsDone, secondsTotal }) => {
+      const audio16k = await decodeAudio(audio)
+      const segments = await transcribeAudio(audio16k, ({ fraction, secondsDone, secondsTotal }) => {
         setTranscribePct(Math.round(fraction * 100))
-        const mins = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
         setTranscribeProgress(`Transcribing with Whisper… ${mins(secondsDone)} / ${mins(secondsTotal)}`)
       })
 
@@ -226,9 +229,29 @@ export default function NewSession() {
         return
       }
 
-      setTranscribePct(100)
-      setTranscribeProgress('Assigning speakers…')
-      const finalLines = assignSpeakers(segments, speakerCount)
+      // Identify speakers by voice. Fall back to pause-based if the model
+      // can't load (e.g. offline) so we still produce a transcript.
+      let labels: number[] | null = null
+      try {
+        setTranscribePct(0)
+        setTranscribeProgress('Downloading speaker-ID model (first time only)…')
+        await loadDiarizer((pct) => setTranscribeProgress(`Downloading speaker-ID model… ${Math.round(pct)}%`))
+        labels = await diarize(
+          audio16k,
+          segments,
+          speakerCount === 0 ? 'auto' : speakerCount,
+          ({ done, total }) => {
+            setTranscribePct(Math.round((done / total) * 100))
+            setTranscribeProgress(`Identifying speakers by voice… ${done}/${total}`)
+          },
+        )
+      } catch (e) {
+        console.warn('Diarization unavailable, using pause-based fallback:', e)
+      }
+
+      const finalLines: Line[] = labels
+        ? segments.map((s, i) => ({ id: `l${i}`, speaker: labels![i], text: s.text, time: s.start }))
+        : assignSpeakers(segments, speakerCount || 2)
       linesRef.current = finalLines
       setLines(finalLines)
 
@@ -483,7 +506,7 @@ export default function NewSession() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: speakerColor(activeSpeaker) }} />
-          Speaker {activeSpeaker + 1} · {speakerCount} total
+          Speaker {activeSpeaker + 1} · {Math.max(speakerCount, activeSpeaker + 1)} total
         </div>
       </div>
 
@@ -555,15 +578,22 @@ export default function NewSession() {
         <div style={{ marginBottom: 16 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 10, letterSpacing: '0.06em' }}>SPEAKERS</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            {[1, 2, 3, 4].map(n => (
+            {[0, 1, 2, 3, 4].map(n => (
               <button key={n} onClick={() => setSpeakerCount(n)} style={{
                 flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 700,
                 border: `1.5px solid ${speakerCount === n ? 'var(--accent)' : 'var(--border)'}`,
                 background: speakerCount === n ? 'var(--accent-dim)' : 'var(--bg-input)',
                 color: speakerCount === n ? 'var(--accent)' : 'var(--muted)',
-              }}>{n}</button>
+              }}>{n === 0 ? 'Auto' : n}</button>
             ))}
           </div>
+          {(mode === 'file' || mode === 'device') && (
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+              {speakerCount === 0
+                ? 'Auto: detects how many people are talking from their voices, and adds a new speaker when a new voice joins.'
+                : `Forces exactly ${speakerCount} speaker${speakerCount > 1 ? 's' : ''} — picks the closest ${speakerCount} voice groups. Use Auto if unsure.`}
+            </p>
+          )}
         </div>
 
         <div style={{ marginBottom: 28 }}>
