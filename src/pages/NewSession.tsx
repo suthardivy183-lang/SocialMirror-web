@@ -78,7 +78,9 @@ export default function NewSession() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [modelProgress, setModelProgress] = useState(0)
   const [modelReady, setModelReady] = useState(false)
+  const [modelError, setModelError] = useState('')
   const [transcribeProgress, setTranscribeProgress] = useState('')
+  const [transcribePct, setTranscribePct] = useState(0)
 
   const ctxRef = useRef<AudioContext | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -101,7 +103,13 @@ export default function NewSession() {
   // Pre-load Whisper model when user switches to file mode
   useEffect(() => {
     if (mode !== 'file' || modelReady) return
-    loadWhisper((pct) => setModelProgress(pct)).then(() => setModelReady(true))
+    setModelError('')
+    loadWhisper((pct) => setModelProgress(pct))
+      .then(() => setModelReady(true))
+      .catch((err) => {
+        console.error('Model load failed:', err)
+        setModelError('Failed to download the Whisper model. Check your connection and reload.')
+      })
   }, [mode, modelReady])
 
   // ── LIVE RECORDING ──────────────────────────────────────────────────────────
@@ -200,12 +208,22 @@ export default function NewSession() {
   const startFile = useCallback(async () => {
     if (!selectedFile || !modelReady) return
     setPhase('transcribing')
-    setTranscribeProgress('Reading audio file…')
+    setTranscribePct(0)
+    setTranscribeProgress('Reading and boosting audio…')
 
     try {
-      setTranscribeProgress('Boosting quiet audio and transcribing with Whisper… (may take a minute for long files)')
-      const segments = await transcribeFile(selectedFile)
+      const segments = await transcribeFile(selectedFile, ({ fraction, secondsDone, secondsTotal }) => {
+        setTranscribePct(Math.round(fraction * 100))
+        const mins = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+        setTranscribeProgress(`Transcribing with Whisper… ${mins(secondsDone)} / ${mins(secondsTotal)}`)
+      })
 
+      if (segments.length === 0) {
+        setTranscribeProgress('No speech was detected in this file. Try a clearer recording or a different file.')
+        return
+      }
+
+      setTranscribePct(100)
       setTranscribeProgress('Assigning speakers…')
       const finalLines = assignSpeakers(segments, speakerCount)
       linesRef.current = finalLines
@@ -308,12 +326,20 @@ export default function NewSession() {
       <div style={{ textAlign: 'center', maxWidth: 420 }}>
         <div style={{ fontSize: 48, marginBottom: 20 }}>🎙️</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Transcribing audio</h2>
-        <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 28, lineHeight: 1.6 }}>{transcribeProgress}</p>
+        <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 12, lineHeight: 1.6 }}>{transcribeProgress}</p>
+        {transcribePct > 0 && (
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent)', marginBottom: 16 }}>{transcribePct}%</div>
+        )}
         <div style={{ height: 6, background: 'var(--bg-subtle)', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 3, animation: 'indeterminate 1.5s ease-in-out infinite' }} />
+          {transcribePct > 0 ? (
+            <div style={{ height: '100%', width: `${transcribePct}%`, background: 'var(--accent)', borderRadius: 3, transition: 'width 0.4s ease' }} />
+          ) : (
+            <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 3, animation: 'indeterminate 1.5s ease-in-out infinite' }} />
+          )}
         </div>
         <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 16 }}>
           Whisper runs entirely in your browser — no audio is uploaded anywhere.
+          Longer files take longer; please keep this tab open.
         </p>
       </div>
       <style>{`@keyframes indeterminate{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}`}</style>
@@ -444,7 +470,7 @@ export default function NewSession() {
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'block', marginBottom: 10, letterSpacing: '0.06em' }}>AUDIO FILE</span>
 
             {/* Model loading indicator */}
-            {!modelReady && (
+            {!modelReady && !modelError && (
               <div style={{ marginBottom: 14, padding: '10px 14px', background: 'var(--accent-dim)', borderRadius: 10, border: '1px solid var(--accent)' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', marginBottom: 6 }}>
                   Loading Whisper AI model… {modelProgress > 0 ? `${Math.round(modelProgress)}%` : ''}
@@ -453,6 +479,11 @@ export default function NewSession() {
                   <div style={{ height: '100%', width: `${modelProgress}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.3s' }} />
                 </div>
                 <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>~240 MB download (high-accuracy model), cached after first load</p>
+              </div>
+            )}
+            {modelError && (
+              <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(229,85,85,0.1)', borderRadius: 10, border: '1px solid var(--red)', fontSize: 13, color: 'var(--red)', fontWeight: 600 }}>
+                {modelError}
               </div>
             )}
             {modelReady && (

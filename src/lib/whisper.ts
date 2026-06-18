@@ -119,14 +119,30 @@ function toMono(decoded: AudioBuffer): Float32Array {
   return mixed
 }
 
+const CHUNK_LENGTH_S = 30
+const STRIDE_LENGTH_S = 5
+
+/** Progress while transcribing: 0..1 fraction, plus seconds done / total. */
+export interface TranscribeProgress {
+  fraction: number
+  secondsDone: number
+  secondsTotal: number
+}
+
 /**
  * Transcribes an audio File/Blob.
  * Returns segments with start/end timestamps.
  *
  * The audio is mixed to mono, resampled to 16 kHz, and loudness-normalized so
  * quiet recordings transcribe as accurately as loud ones.
+ *
+ * Whisper processes long audio in sequential 30 s chunks. `onProgress` fires
+ * after each chunk so the UI can show real progress instead of looking frozen.
  */
-export async function transcribeFile(file: File): Promise<Segment[]> {
+export async function transcribeFile(
+  file: File,
+  onProgress?: (p: TranscribeProgress) => void,
+): Promise<Segment[]> {
   if (!_pipe) throw new Error('Call loadWhisper() first')
 
   const arrayBuffer = await file.arrayBuffer()
@@ -138,6 +154,12 @@ export async function transcribeFile(file: File): Promise<Segment[]> {
   const audio16k = resampleTo16k(mono, decoded.sampleRate)
   const normalized = normalizeLoudness(audio16k)
 
+  const secondsTotal = normalized.length / WHISPER_SAMPLE_RATE
+  // Mirror the library's chunking math so we can estimate total chunk count.
+  const jump = WHISPER_SAMPLE_RATE * (CHUNK_LENGTH_S - 2 * STRIDE_LENGTH_S)
+  const totalChunks = Math.max(1, Math.ceil(normalized.length / jump))
+  let chunksDone = 0
+
   // The library's call signature is a huge union that doesn't include a bare
   // Float32Array audio input cleanly; cast to a narrow callable for this use.
   const asr = _pipe as unknown as (
@@ -146,29 +168,41 @@ export async function transcribeFile(file: File): Promise<Segment[]> {
       return_timestamps: boolean
       chunk_length_s: number
       stride_length_s: number
-      // Greedy decode with a temperature fallback ladder: if a chunk decodes
-      // with low confidence (common for quiet/noisy audio), Whisper retries at
-      // a higher temperature instead of emitting garbage or dropping the chunk.
-      temperature: number | number[]
-      no_speech_threshold: number
+      chunk_callback: () => void
     },
-  ) => Promise<{ chunks?: Array<{ text: string; timestamp: [number, number] }> }>
+  ) => Promise<{
+    text?: string
+    chunks?: Array<{ text: string; timestamp: [number, number] }>
+  }>
 
   const result = await asr(normalized, {
     return_timestamps: true,
-    chunk_length_s: 30,
-    stride_length_s: 5,
-    temperature: [0, 0.2, 0.4, 0.6, 0.8, 1.0],
-    no_speech_threshold: 0.6,
+    chunk_length_s: CHUNK_LENGTH_S,
+    stride_length_s: STRIDE_LENGTH_S,
+    chunk_callback: () => {
+      chunksDone++
+      const fraction = Math.min(chunksDone / totalChunks, 1)
+      onProgress?.({ fraction, secondsDone: fraction * secondsTotal, secondsTotal })
+    },
   })
 
-  if (!result.chunks) return []
+  // Preferred path: timestamped chunks (lets us separate speakers by pauses).
+  if (result.chunks && result.chunks.length > 0) {
+    const segments = result.chunks
+      .map(c => ({
+        text: c.text.trim(),
+        start: c.timestamp[0] ?? 0,
+        end: c.timestamp[1] ?? c.timestamp[0] ?? 0,
+      }))
+      .filter(s => s.text.length > 0)
+    if (segments.length > 0) return segments
+  }
 
-  return result.chunks
-    .map(c => ({
-      text: c.text.trim(),
-      start: c.timestamp[0] ?? 0,
-      end: c.timestamp[1] ?? c.timestamp[0] ?? 0,
-    }))
-    .filter(s => s.text.length > 0)
+  // Fallback: timestamp decoding produced nothing but we still have full text.
+  // Return it as one segment rather than dropping the whole transcript.
+  if (result.text && result.text.trim().length > 0) {
+    return [{ text: result.text.trim(), start: 0, end: secondsTotal }]
+  }
+
+  return []
 }
