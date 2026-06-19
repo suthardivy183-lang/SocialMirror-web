@@ -47,7 +47,7 @@ const stddev = (a: number[]) => {
 
 /**
  * Extract per-speaker pitch & loudness from decoded audio so the vocal-delivery,
- * rapport and dominance analyses work for file/device sessions (live mode gets
+ * rapport and dominance analyses work for uploaded-file sessions (live mode gets
  * these from the real-time mic poll instead). Samples a bounded number of short
  * windows per segment and attributes them to that segment's speaker label.
  */
@@ -106,8 +106,8 @@ function assignSpeakers(segments: Segment[], totalSpeakers: number): Line[] {
 
 export default function NewSession() {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<'live' | 'device' | 'file'>('live')
-  const [phase, setPhase] = useState<'setup' | 'recording' | 'capturing' | 'transcribing' | 'done'>('setup')
+  const [mode, setMode] = useState<'live' | 'file'>('live')
+  const [phase, setPhase] = useState<'setup' | 'recording' | 'transcribing' | 'done'>('setup')
   const [name, setName] = useState('Untitled session')
   const [type, setType] = useState('meeting')
   const [elapsed, setElapsed] = useState(0)
@@ -119,7 +119,6 @@ export default function NewSession() {
   const [modelProgress, setModelProgress] = useState(0)
   const [modelReady, setModelReady] = useState(false)
   const [modelError, setModelError] = useState('')
-  const [deviceError, setDeviceError] = useState('')
   const [transcribeProgress, setTranscribeProgress] = useState('')
   const [transcribePct, setTranscribePct] = useState(0)
 
@@ -136,16 +135,14 @@ export default function NewSession() {
   const acousticRef = useRef<Record<number, { pitches: number[]; energies: number[] }>>({})
   const pausesRef = useRef<number[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const recChunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [lines])
 
-  // Pre-load Whisper model when user switches to a Whisper-based mode
+  // Pre-load Whisper model when user switches to file mode
   useEffect(() => {
-    if ((mode !== 'file' && mode !== 'device') || modelReady) return
+    if (mode !== 'file' || modelReady) return
     setModelError('')
     loadWhisper((pct) => setModelProgress(pct))
       .then(() => setModelReady(true))
@@ -246,9 +243,9 @@ export default function NewSession() {
     await saveSession(linesRef.current, elapsed)
   }
 
-  // ── WHISPER TRANSCRIPTION (file upload + device capture share this) ──────────
+  // ── WHISPER TRANSCRIPTION (file upload) ──────────────────────────────────────
 
-  /** Decode → transcribe → diarize-by-voice → save. Shared by file + device. */
+  /** Decode → transcribe → diarize-by-voice → save. */
   const runTranscription = useCallback(async (audio: Blob, noSpeechHint: string) => {
     setPhase('transcribing')
     setTranscribePct(0)
@@ -328,80 +325,6 @@ export default function NewSession() {
       'No speech was detected in this file. Try a clearer recording or a different file.',
     )
   }, [selectedFile, modelReady, runTranscription])
-
-  // ── DEVICE / TAB AUDIO CAPTURE ───────────────────────────────────────────────
-  // Captures the audio playing on the device (e.g. a podcast in a browser tab)
-  // via getDisplayMedia, records it, then transcribes with Whisper on stop.
-
-  async function startDevice() {
-    if (!modelReady) return
-    setDeviceError('')
-
-    let stream: MediaStream
-    try {
-      // Video is requested because Chrome only offers the "share audio" option
-      // alongside a screen/tab share; we ignore the video track.
-      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-    } catch {
-      setDeviceError('Capture was cancelled. Click "Capture device audio" and pick the tab/screen that\'s playing.')
-      return
-    }
-
-    const audioTracks = stream.getAudioTracks()
-    if (audioTracks.length === 0) {
-      stream.getTracks().forEach(t => t.stop())
-      setDeviceError('No audio was shared. In the picker, choose a tab (or Entire Screen) and turn ON the "Share tab audio"/"Share system audio" toggle.')
-      return
-    }
-
-    streamRef.current = stream
-    const audioStream = new MediaStream(audioTracks)
-
-    // Level meter
-    const ctx = new AudioContext()
-    ctxRef.current = ctx
-    const src = ctx.createMediaStreamSource(audioStream)
-    const analyser = ctx.createAnalyser()
-    analyser.fftSize = 512
-    src.connect(analyser)
-    const buf = new Uint8Array(analyser.frequencyBinCount)
-    pollRef.current = setInterval(() => {
-      analyser.getByteFrequencyData(buf)
-      setRms(Math.sqrt(buf.reduce((s, v) => s + v * v, 0) / buf.length) / 128)
-    }, 100)
-
-    // Record
-    const rec = new MediaRecorder(audioStream)
-    mediaRecorderRef.current = rec
-    recChunksRef.current = []
-    rec.ondataavailable = (e) => { if (e.data.size > 0) recChunksRef.current.push(e.data) }
-    rec.onstop = async () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-      if (timerRef.current) clearInterval(timerRef.current)
-      ctx.close().catch(() => {})
-      stream.getTracks().forEach(t => t.stop())
-      const blob = new Blob(recChunksRef.current, { type: rec.mimeType || 'audio/webm' })
-      await runTranscription(
-        blob,
-        'No audio was captured. Make sure something was actually playing and that you enabled "Share audio" in the picker.',
-      )
-    }
-
-    // If the user ends the share via the browser bar, stop recording too.
-    audioTracks[0].addEventListener('ended', () => {
-      if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop()
-    })
-
-    rec.start()
-    setPhase('capturing')
-    startRef.current = Date.now()
-    setElapsed(0)
-    timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 500)
-  }
-
-  function stopDevice() {
-    mediaRecorderRef.current?.stop()
-  }
 
   // ── SHARED SAVE ─────────────────────────────────────────────────────────────
 
@@ -500,33 +423,6 @@ export default function NewSession() {
     </div>
   )
 
-  // ── DEVICE-AUDIO CAPTURE VIEW ────────────────────────────────────────────────
-
-  if (phase === 'capturing') return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <div style={{ textAlign: 'center', maxWidth: 420, width: '100%' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🔊</div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Capturing device audio</h2>
-        <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>
-          Recording the audio playing on your device. Let the podcast play, then stop to transcribe.
-        </p>
-        <div style={{ fontFamily: 'monospace', fontSize: 40, fontWeight: 800, color: 'var(--accent)', marginBottom: 20 }}>{fmt(elapsed)}</div>
-        <div style={{ height: 6, background: 'var(--bg-subtle)', borderRadius: 3, overflow: 'hidden', marginBottom: 28 }}>
-          <div style={{ height: '100%', width: `${Math.min(rms * 100, 100)}%`, background: rms > 0.02 ? 'var(--accent)' : 'var(--border-strong)', borderRadius: 3, transition: 'width 0.1s' }} />
-        </div>
-        {rms <= 0.02 && (
-          <p style={{ color: 'var(--red)', fontSize: 13, marginBottom: 20, fontWeight: 600 }}>
-            No sound detected — make sure audio is playing and you enabled “Share audio”.
-          </p>
-        )}
-        <button onClick={stopDevice} style={{
-          width: '100%', padding: 15, borderRadius: 12, fontSize: 16, fontWeight: 700,
-          background: 'var(--red)', color: '#fff', border: 'none',
-        }}>⏹ Stop & transcribe</button>
-      </div>
-    </div>
-  )
-
   // ── LIVE RECORDING VIEW ─────────────────────────────────────────────────────
 
   if (phase === 'recording') return (
@@ -594,22 +490,20 @@ export default function NewSession() {
 
         {/* Mode toggle */}
         <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: 12, padding: 4, marginBottom: 12, border: '1.5px solid var(--border)' }}>
-          {(['live', 'device', 'file'] as const).map(m => (
+          {(['live', 'file'] as const).map(m => (
             <button key={m} onClick={() => setMode(m)} style={{
-              flex: 1, padding: '10px 0', borderRadius: 9, fontSize: 13, fontWeight: 700,
+              flex: 1, padding: '10px 0', borderRadius: 9, fontSize: 14, fontWeight: 700,
               background: mode === m ? 'var(--accent)' : 'transparent',
               color: mode === m ? '#fff' : 'var(--muted)', border: 'none',
               transition: 'all 0.15s',
             }}>
-              {m === 'live' ? '🎙️ Live mic' : m === 'device' ? '🔊 Device audio' : '📁 Upload'}
+              {m === 'live' ? '🎙️ Live mic' : '📁 Upload'}
             </button>
           ))}
         </div>
         <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 24, lineHeight: 1.5 }}>
           {mode === 'live'
             ? 'Transcribe a conversation happening in front of your mic.'
-            : mode === 'device'
-            ? 'Transcribe a podcast/video playing on this device — capture its audio directly (no mic).'
             : 'Transcribe an audio file you already have.'}
         </p>
 
@@ -633,7 +527,7 @@ export default function NewSession() {
               }}>{n === 0 ? 'Auto' : n}</button>
             ))}
           </div>
-          {(mode === 'file' || mode === 'device') && (
+          {mode === 'file' && (
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
               {speakerCount === 0
                 ? 'Auto: detects how many people are talking from their voices, and adds a new speaker when a new voice joins.'
@@ -659,8 +553,8 @@ export default function NewSession() {
           </div>
         </div>
 
-        {/* Whisper model status — shown for both file + device modes */}
-        {(mode === 'file' || mode === 'device') && (
+        {/* Whisper model status — shown for file mode */}
+        {mode === 'file' && (
           <div style={{ marginBottom: 16 }}>
             {!modelReady && !modelError && (
               <div style={{ marginBottom: 8, padding: '10px 14px', background: 'var(--accent-dim)', borderRadius: 10, border: '1px solid var(--accent)' }}>
@@ -719,45 +613,13 @@ export default function NewSession() {
           </div>
         )}
 
-        {/* DEVICE AUDIO SECTION */}
-        {mode === 'device' && (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ padding: '14px 16px', background: 'var(--bg-input)', borderRadius: 10, border: '1.5px solid var(--border)', fontSize: 13, color: 'var(--muted)', lineHeight: 1.7 }}>
-              <strong style={{ color: 'var(--text)' }}>How it works:</strong>
-              <br />1. Start the podcast/video playing (a browser tab works best).
-              <br />2. Click <strong>Capture device audio</strong> below.
-              <br />3. In the picker, choose the <strong>tab</strong> (or Entire Screen) and turn ON <strong>“Share tab audio”</strong>.
-              <br />4. Let it play, then press <strong>Stop &amp; transcribe</strong>.
-            </div>
-            {deviceError && (
-              <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(229,85,85,0.1)', borderRadius: 10, border: '1px solid var(--red)', fontSize: 13, color: 'var(--red)', fontWeight: 600, lineHeight: 1.5 }}>
-                {deviceError}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* CTA button */}
-        {mode === 'live' && (
+        {mode === 'live' ? (
           <button onClick={startLive} style={{
             width: '100%', padding: 15, borderRadius: 12, fontSize: 16, fontWeight: 700,
             background: 'var(--accent)', color: '#fff', border: 'none',
           }}>🎙️ Start recording</button>
-        )}
-        {mode === 'device' && (
-          <button
-            onClick={startDevice}
-            disabled={!modelReady}
-            style={{
-              width: '100%', padding: 15, borderRadius: 12, fontSize: 16, fontWeight: 700,
-              background: 'var(--accent)', color: '#fff', border: 'none',
-              opacity: !modelReady ? 0.45 : 1,
-            }}
-          >
-            {!modelReady ? 'Waiting for model…' : '🔊 Capture device audio'}
-          </button>
-        )}
-        {mode === 'file' && (
+        ) : (
           <button
             onClick={startFile}
             disabled={!selectedFile || !modelReady}
