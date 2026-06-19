@@ -73,12 +73,10 @@ export default function Landing() {
       </header>
 
       {/* ── What it does — asymmetric editorial layout ──────────────────── */}
-      <section style={{
+      <section className="split-2" style={{
         maxWidth: 1080, margin: '0 auto', padding: 'clamp(64px, 10vw, 130px) clamp(20px, 5vw, 40px)',
-        display: 'grid', gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)',
-        gap: 'clamp(32px, 6vw, 80px)', alignItems: 'start',
       }}>
-        <div style={{ position: 'sticky', top: 110 }}>
+        <div className="sticky-col" style={{ position: 'sticky', top: 110 }}>
           <span style={sectionLabel}>What it does</span>
           <h2 className="display" style={{ fontSize: 'clamp(1.9rem, 3.2vw, 2.8rem)', fontWeight: 500, marginTop: 14, lineHeight: 1.1 }}>
             A mirror for the way you talk.
@@ -166,17 +164,17 @@ function Wordmark({ small }: { small?: boolean }) {
 function Waveform() {
   // A calm, asymmetric bar field — the visual signature.
   const bars = [10, 22, 38, 28, 54, 70, 46, 84, 62, 96, 74, 52, 88, 60, 40, 26, 48, 34, 20, 12, 30, 18, 24, 14]
+  const W = bars.length * 14
   return (
-    <svg viewBox="0 0 720 110" width="100%" height="90" preserveAspectRatio="none" style={{ display: 'block' }}>
+    <svg viewBox={`0 0 ${W} 110`} width="100%" height="auto" preserveAspectRatio="xMidYMid meet" style={{ display: 'block', maxHeight: 120 }}>
       {bars.map((h, i) => {
-        const x = i * 30 + 6
         const accent = i % 5 === 3
         return (
           <rect
             key={i}
-            x={x} y={55 - h / 2} width={10} height={h} rx={5}
+            x={i * 14 + 2} y={55 - h / 2} width={8} height={h} rx={4}
             fill={accent ? 'var(--accent)' : 'var(--border-strong)'}
-            opacity={accent ? 0.95 : 0.6}
+            opacity={accent ? 0.95 : 0.55}
           />
         )
       })}
