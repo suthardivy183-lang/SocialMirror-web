@@ -73,10 +73,10 @@ export default function Dashboard() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {sessions.map(s => (
-              <Link to={`/session/${s.id}`} key={s.id} className="fade-in" style={{
+              <Link to={`/session/${s.id}`} key={s.id} className="fade-in card-hover" style={{
                 display: 'flex', alignItems: 'center', gap: 16,
                 background: 'var(--bg-card)', border: '1px solid var(--border)',
-                borderRadius: 14, padding: '16px 18px', boxShadow: 'var(--shadow-card)',
+                borderRadius: 'var(--radius-card)', padding: '16px 18px', boxShadow: 'var(--shadow-card)',
               }}>
                 <div style={{
                   width: 44, height: 44, borderRadius: 12, background: 'var(--accent-dim)',

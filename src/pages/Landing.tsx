@@ -1,99 +1,210 @@
 import { Link } from 'react-router-dom'
+import type { CSSProperties } from 'react'
 
 const features = [
-  { icon: '🎙️', title: 'Real-time recording', desc: 'Capture live conversations directly in your browser. No app install needed.' },
-  { icon: '👥', title: 'Speaker diarization', desc: 'Automatically detects who is speaking and tracks each person separately.' },
-  { icon: '📝', title: 'AI transcription', desc: 'Whisper AI transcribes every word, labelled by speaker, on your device.' },
-  { icon: '🧠', title: 'Coaching insights', desc: 'Actionable feedback on talk time, confidence, and conversation dynamics.' },
+  { n: '01', title: 'Records in your browser', desc: 'Capture a live conversation or drop in an audio file. Nothing to install, nothing to set up.' },
+  { n: '02', title: 'Knows who said what', desc: 'Voice-fingerprint diarization separates each speaker — and notices when a new voice joins.' },
+  { n: '03', title: 'Transcribes every word', desc: 'Whisper turns speech into a clean, labelled transcript, running entirely on your device.' },
+  { n: '04', title: 'Coaches how you show up', desc: 'Talk time, confidence, fillers, questions, rapport — read back as plain, useful guidance.' },
 ]
 
 export default function Landing() {
   return (
-    <div style={{ minHeight: '100vh' }}>
-      {/* Nav */}
+    <div style={{ minHeight: '100vh', overflowX: 'hidden' }}>
+      {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <nav style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '18px 40px', borderBottom: '1px solid var(--border)',
-        position: 'sticky', top: 0, background: 'var(--nav-bg)',
-        backdropFilter: 'blur(16px)', zIndex: 50,
+        padding: '20px clamp(20px, 5vw, 56px)', position: 'sticky', top: 0, zIndex: 50,
+        background: 'var(--nav-bg)', backdropFilter: 'blur(18px)',
+        borderBottom: '1px solid var(--border)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10, background: 'var(--accent-dim)',
-            display: 'grid', placeItems: 'center', fontSize: 18,
-          }}>〰️</div>
-          <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: '-0.3px' }}>SocialMirror</span>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Link to="/dashboard" style={{
-            padding: '8px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500,
-            border: '1px solid var(--border)', color: 'var(--text)',
-          }}>Log in</Link>
-          <Link to="/dashboard" style={{
-            padding: '8px 18px', borderRadius: 8, fontSize: 14, fontWeight: 700,
-            background: 'var(--accent)', color: '#fff',
-          }}>Sign up free</Link>
+        <Wordmark />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <Link to="/dashboard" className="btn btn-ghost" style={ghostBtn}>Log in</Link>
+          <Link to="/dashboard" className="btn btn-solid" style={solidBtn}>Get started</Link>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section style={{ textAlign: 'center', padding: '100px 24px 80px', maxWidth: 760, margin: '0 auto' }}>
-        <div style={{
-          display: 'inline-block', padding: '5px 14px', borderRadius: 20,
-          background: 'var(--accent-dim)', color: 'var(--accent)',
-          fontSize: 13, fontWeight: 600, marginBottom: 28, letterSpacing: '0.02em',
-        }}>
-          100% free · runs in your browser · zero upload
-        </div>
+      {/* ── Hero ────────────────────────────────────────────────────────── */}
+      <header className="reveal" style={{
+        maxWidth: 1080, margin: '0 auto', padding: 'clamp(56px, 9vw, 120px) clamp(20px, 5vw, 40px) 0',
+        position: 'relative',
+      }}>
+        <span style={eyebrow}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', animation: 'pulse 1.8s infinite' }} />
+          Private · on-device · zero upload
+        </span>
+
         <h1 style={{
-          fontSize: 'clamp(2.4rem, 6vw, 4rem)', fontWeight: 800,
-          lineHeight: 1.1, letterSpacing: '-0.03em', marginBottom: 22,
+          fontSize: 'clamp(3rem, 9vw, 6.4rem)', fontWeight: 600,
+          margin: '26px 0 0', maxWidth: '15ch',
         }}>
-          Understand how you show up<br />
-          <span style={{ color: 'var(--accent)' }}>in conversation</span>
+          Hear how you really{' '}
+          <em style={{ fontStyle: 'italic', color: 'var(--accent)', fontWeight: 500 }}>show&nbsp;up</em>{' '}
+          in conversation.
         </h1>
+
         <p style={{
-          fontSize: 18, color: 'var(--muted)', lineHeight: 1.65,
-          maxWidth: 520, margin: '0 auto 40px',
+          fontSize: 'clamp(1.05rem, 1.6vw, 1.3rem)', color: 'var(--text-mid)',
+          lineHeight: 1.6, maxWidth: 540, marginTop: 30,
         }}>
-          Record any conversation, get real-time speaker diarization, AI transcription,
-          and actionable coaching — all processed on your device.
+          SocialMirror records any conversation, separates the speakers by voice,
+          transcribes every word, and reflects back how you actually came across —
+          all processed privately on your device.
         </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/dashboard" style={{
-            padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 700,
-            background: 'var(--accent)', color: '#fff',
-          }}>Start for free</Link>
-          <Link to="/dashboard" style={{
-            padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 600,
-            border: '1px solid var(--border)', color: 'var(--text)',
-          }}>Log in</Link>
+
+        <div style={{ display: 'flex', gap: 14, marginTop: 38, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Link to="/dashboard" className="btn btn-solid" style={{ ...solidBtn, padding: '15px 30px', fontSize: 16, boxShadow: 'var(--shadow-accent)' }}>
+            Start listening — free
+          </Link>
+          <Link to="/dashboard" className="link-underline" style={{
+            ...ghostBtn, padding: '15px 8px', fontSize: 16, border: 'none',
+            color: 'var(--text)', textDecoration: 'underline', textUnderlineOffset: 5,
+            textDecorationColor: 'var(--border-strong)',
+          }}>
+            See how it works
+          </Link>
+        </div>
+
+        {/* Editorial soundwave motif, offset to break the grid */}
+        <div aria-hidden style={{ marginTop: 56, opacity: 0.9 }}>
+          <Waveform />
+        </div>
+      </header>
+
+      {/* ── What it does — asymmetric editorial layout ──────────────────── */}
+      <section style={{
+        maxWidth: 1080, margin: '0 auto', padding: 'clamp(64px, 10vw, 130px) clamp(20px, 5vw, 40px)',
+        display: 'grid', gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)',
+        gap: 'clamp(32px, 6vw, 80px)', alignItems: 'start',
+      }}>
+        <div style={{ position: 'sticky', top: 110 }}>
+          <span style={sectionLabel}>What it does</span>
+          <h2 className="display" style={{ fontSize: 'clamp(1.9rem, 3.2vw, 2.8rem)', fontWeight: 500, marginTop: 14, lineHeight: 1.1 }}>
+            A mirror for the way you talk.
+          </h2>
+          <p style={{ color: 'var(--muted)', marginTop: 16, lineHeight: 1.6, maxWidth: 320 }}>
+            Four steps, no accounts, no uploads. Open it and start a session.
+          </p>
+        </div>
+
+        <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+          {features.map((f, i) => (
+            <li key={f.n} style={{
+              display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 'clamp(16px, 3vw, 32px)',
+              padding: '26px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              alignItems: 'baseline',
+            }}>
+              <span className="mono" style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 500 }}>{f.n}</span>
+              <div>
+                <h3 className="display" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.6rem)', fontWeight: 500, marginBottom: 8 }}>{f.title}</h3>
+                <p style={{ color: 'var(--text-mid)', lineHeight: 1.6, maxWidth: 440 }}>{f.desc}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ── Privacy band ────────────────────────────────────────────────── */}
+      <section style={{ padding: '0 clamp(20px, 5vw, 40px) clamp(64px, 10vw, 120px)' }}>
+        <div style={{
+          maxWidth: 1080, margin: '0 auto', borderRadius: 'var(--radius-card)',
+          background: 'var(--accent-soft)', border: '1px solid var(--accent-dim)',
+          padding: 'clamp(32px, 5vw, 56px)',
+          display: 'flex', gap: 'clamp(20px, 4vw, 48px)', flexWrap: 'wrap',
+          alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ maxWidth: 560 }}>
+            <span style={{ ...sectionLabel, color: 'var(--accent)' }}>Yours alone</span>
+            <h2 className="display" style={{ fontSize: 'clamp(1.6rem, 2.6vw, 2.3rem)', fontWeight: 500, margin: '12px 0 0', lineHeight: 1.15 }}>
+              Your voice never leaves the device.
+            </h2>
+            <p style={{ color: 'var(--text-mid)', marginTop: 14, lineHeight: 1.6 }}>
+              Transcription and speaker analysis run in your browser with on-device AI.
+              No audio is uploaded, stored on a server, or sent anywhere.
+            </p>
+          </div>
+          <Link to="/dashboard" className="btn btn-solid" style={{ ...solidBtn, padding: '15px 30px', fontSize: 16 }}>
+            Try it now
+          </Link>
         </div>
       </section>
 
-      {/* Features */}
-      <section style={{
-        maxWidth: 900, margin: '0 auto', padding: '0 24px 100px',
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20,
-      }}>
-        {features.map(f => (
-          <div key={f.title} style={{
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 14, padding: 24,
-          }}>
-            <div style={{ fontSize: 28, marginBottom: 14 }}>{f.icon}</div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{f.title}</h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>{f.desc}</p>
-          </div>
-        ))}
-      </section>
-
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer style={{
-        textAlign: 'center', padding: 24, borderTop: '1px solid var(--border)',
-        color: 'var(--muted)', fontSize: 13,
+        borderTop: '1px solid var(--border)', padding: '28px clamp(20px, 5vw, 40px)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        flexWrap: 'wrap', gap: 12, color: 'var(--muted)', fontSize: 13,
+        maxWidth: 1080, margin: '0 auto',
       }}>
-        © 2026 SocialMirror · Built with Whisper AI · Zero cloud audio processing
+        <Wordmark small />
+        <span>© 2026 · Built with on-device Whisper AI</span>
       </footer>
     </div>
   )
+}
+
+/* ── Pieces ──────────────────────────────────────────────────────────── */
+
+function Wordmark({ small }: { small?: boolean }) {
+  return (
+    <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <span style={{
+        width: small ? 26 : 32, height: small ? 26 : 32, borderRadius: 9,
+        background: 'var(--accent)', color: 'var(--accent-ink)',
+        display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow-accent)',
+      }}>
+        <svg width={small ? 13 : 16} height={small ? 13 : 16} viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+          <path d="M2 11h2M7 6v10M11 2v18M15 6v10M20 11h0" />
+        </svg>
+      </span>
+      <span style={{ fontWeight: 700, fontSize: small ? 15 : 17, letterSpacing: '-0.02em' }}>SocialMirror</span>
+    </Link>
+  )
+}
+
+function Waveform() {
+  // A calm, asymmetric bar field — the visual signature.
+  const bars = [10, 22, 38, 28, 54, 70, 46, 84, 62, 96, 74, 52, 88, 60, 40, 26, 48, 34, 20, 12, 30, 18, 24, 14]
+  return (
+    <svg viewBox="0 0 720 110" width="100%" height="90" preserveAspectRatio="none" style={{ display: 'block' }}>
+      {bars.map((h, i) => {
+        const x = i * 30 + 6
+        const accent = i % 5 === 3
+        return (
+          <rect
+            key={i}
+            x={x} y={55 - h / 2} width={10} height={h} rx={5}
+            fill={accent ? 'var(--accent)' : 'var(--border-strong)'}
+            opacity={accent ? 0.95 : 0.6}
+          />
+        )
+      })}
+    </svg>
+  )
+}
+
+const eyebrow: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 9,
+  padding: '7px 15px', borderRadius: 'var(--radius-pill)',
+  background: 'var(--bg-card)', border: '1px solid var(--border)',
+  fontSize: 13, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.01em',
+  boxShadow: 'var(--shadow-card)',
+}
+
+const sectionLabel: CSSProperties = {
+  fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+  color: 'var(--muted)',
+}
+
+const solidBtn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  padding: '9px 18px', borderRadius: 'var(--radius-pill)', fontSize: 14, fontWeight: 700,
+  background: 'var(--accent)', color: 'var(--accent-ink)',
+}
+
+const ghostBtn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  padding: '9px 18px', borderRadius: 'var(--radius-pill)', fontSize: 14, fontWeight: 600,
+  border: '1px solid var(--border-strong)', color: 'var(--text)',
 }

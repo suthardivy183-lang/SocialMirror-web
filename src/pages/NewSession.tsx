@@ -561,7 +561,7 @@ export default function NewSession() {
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', marginBottom: 6 }}>
                   Loading Whisper AI model… {modelProgress > 0 ? `${Math.round(modelProgress)}%` : ''}
                 </div>
-                <div style={{ height: 4, background: 'rgba(127,119,221,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: 4, background: 'var(--accent-soft)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${modelProgress}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.3s' }} />
                 </div>
                 <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>~240 MB download (high-accuracy model), cached after first load</p>
