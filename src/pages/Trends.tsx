@@ -104,7 +104,7 @@ export default function Trends() {
 
 function Empty() {
   return (
-    <div style={{ textAlign: 'center', padding: '80px 24px', border: '1px dashed var(--border)', borderRadius: 16, background: 'var(--bg-card)' }}>
+    <div className="frost" style={{ textAlign: 'center', padding: '80px 24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}>
       <div style={{ fontSize: 44, marginBottom: 14 }}>📈</div>
       <h2 style={{ fontSize: 19, fontWeight: 700, marginBottom: 8 }}>No trends yet</h2>
       <p style={{ color: 'var(--muted)', fontSize: 14 }}>Record a few sessions to see your patterns over time.</p>
@@ -114,8 +114,8 @@ function Empty() {
 
 function Stat({ big, label, accent }: { big: string; label: string; accent?: boolean }) {
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, boxShadow: 'var(--shadow-card)' }}>
-      <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', color: accent ? 'var(--accent)' : 'var(--text)' }}>{big}</div>
+    <div className="frost card-hover" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 18, boxShadow: 'var(--shadow-card)' }}>
+      <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', color: accent ? 'var(--accent)' : 'var(--text)' }}>{big}</div>
       <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{label}</div>
     </div>
   )
@@ -123,7 +123,7 @@ function Stat({ big, label, accent }: { big: string; label: string; accent?: boo
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-card)' }}>
+    <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-card)' }}>
       <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{title}</h3>
       {children}
     </div>

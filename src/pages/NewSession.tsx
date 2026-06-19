@@ -481,11 +481,16 @@ export default function NewSession() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 460 }}>
+      <div style={{ width: '100%', maxWidth: 480 }}>
         <button onClick={() => navigate('/dashboard')} style={{
-          background: 'none', border: 'none', color: 'var(--muted)', fontSize: 14, marginBottom: 32,
+          background: 'none', border: 'none', color: 'var(--muted)', fontSize: 14, marginBottom: 20,
         }}>← Back</button>
 
+        <div className="frost" style={{
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-card)',
+          padding: 'clamp(22px, 4vw, 34px)',
+        }}>
         <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 24, letterSpacing: '-0.03em' }}>New session</h1>
 
         {/* Mode toggle */}
@@ -632,6 +637,7 @@ export default function NewSession() {
             {!modelReady ? 'Waiting for model…' : !selectedFile ? 'Choose a file first' : '🚀 Transcribe file'}
           </button>
         )}
+        </div>
       </div>
     </div>
   )

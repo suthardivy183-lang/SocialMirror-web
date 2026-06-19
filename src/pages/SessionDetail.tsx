@@ -76,9 +76,9 @@ export default function SessionDetail() {
 
         {/* Coaching report */}
         {session.report && (
-          <div className="fade-in" style={{
+          <div className="fade-in frost" style={{
             background: 'var(--accent-soft)', border: '1px solid var(--accent-dim)',
-            borderRadius: 16, padding: 24, marginBottom: 28,
+            borderRadius: 'var(--radius-card)', padding: 24, marginBottom: 22, boxShadow: 'var(--shadow-card)',
           }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.1em', marginBottom: 10 }}>COACHING REPORT</div>
             <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.02em' }}>{session.report.headline}</h2>
@@ -102,7 +102,7 @@ export default function SessionDetail() {
           const lastVal = textValence(allText.slice(half).join(' '))
           const overall = textValence(allText.join(' '))
           return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+            <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
               <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 16 }}>EMOTIONAL TONE</h3>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
                 {perSpeaker.map(({ s, emotion }) => (
@@ -134,7 +134,7 @@ export default function SessionDetail() {
 
         {/* Radar chart */}
         {speakers.length > 0 && (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+          <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
             <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 8 }}>SPEAKER PROFILE</h3>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <RadarChart
@@ -155,7 +155,7 @@ export default function SessionDetail() {
 
         {/* Silence & Pause analysis */}
         {session.pauses && (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+          <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
             <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 16 }}>PACING & SILENCE</h3>
             {/* talk vs silence bar */}
             <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
@@ -180,7 +180,7 @@ export default function SessionDetail() {
 
         {/* Vocal delivery / monotony */}
         {speakers.length > 0 && (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+          <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
             <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 16 }}>VOCAL DELIVERY</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {speakers.map(s => {
@@ -223,7 +223,7 @@ export default function SessionDetail() {
           const perMin = session.duration_seconds > 0 ? +(total / (session.duration_seconds / 60)).toFixed(1) : 0
           const topWord = breakdown[0]?.[0] ?? ''
           return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+            <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
               <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 16 }}>SPEECH CLARITY</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: breakdown.length ? 16 : 0 }}>
                 <PauseStat value={`${total}`} label="Filler words" />
@@ -255,7 +255,7 @@ export default function SessionDetail() {
           const q = questionStats(userText)
           if (q.questions + q.statements === 0) return null
           return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+            <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
               <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 16 }}>CURIOSITY</h3>
               <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
                 <div style={{ width: `${q.ratio * 100}%`, background: 'var(--accent)' }} />
@@ -294,7 +294,7 @@ export default function SessionDetail() {
           const bc = backchannelStats(session.transcript)
           const chips = Object.entries(bc.phrases).sort((a, b) => b[1] - a[1])
           return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+            <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
               <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 16 }}>ACTIVE LISTENING</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>Listening score</span>
@@ -328,7 +328,7 @@ export default function SessionDetail() {
           const ir = interruptionStats(session.transcript.map(l => ({ speakerID: l.speakerID, startTime: l.startTime })))
           const userMade = ir.made[0] ?? 0
           return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+            <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
               <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 16 }}>TURN-TAKING</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
                 <PauseStat value={`${ir.total}`} label="Total interruptions" />
@@ -358,7 +358,7 @@ export default function SessionDetail() {
         {speakers.length > 1 && (() => {
           const ent = entrainmentStats(speakers)
           return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 28, boxShadow: 'var(--shadow-card)' }}>
+            <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 22, marginBottom: 22, boxShadow: 'var(--shadow-card)' }}>
               <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 16 }}>RAPPORT</h3>
               {/* big circular score */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 16 }}>
@@ -410,7 +410,7 @@ export default function SessionDetail() {
             <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 14 }}>SPEAKERS</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
               {speakers.map(s => (
-                <div key={s.speakerID} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, boxShadow: 'var(--shadow-card)' }}>
+                <div key={s.speakerID} className="frost card-hover" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 18, boxShadow: 'var(--shadow-card)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: speakerColor(s.speakerID) }} />
                     {editing === s.speakerID ? (
@@ -456,7 +456,7 @@ export default function SessionDetail() {
         {session.transcript?.length > 0 && (
           <div>
             <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.08em', marginBottom: 14 }}>TRANSCRIPT</h3>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
+            <div className="frost" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
               {session.transcript.map((line, i) => (
                 <div key={line.id} style={{ padding: '14px 18px', borderBottom: i < session.transcript.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', gap: 14 }}>
                   <div style={{ paddingTop: 4, flexShrink: 0 }}>

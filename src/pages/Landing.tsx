@@ -30,7 +30,7 @@ export default function Landing() {
         maxWidth: 1080, margin: '0 auto', padding: 'clamp(56px, 9vw, 120px) clamp(20px, 5vw, 40px) 0',
         position: 'relative',
       }}>
-        <span style={eyebrow}>
+        <span className="frost" style={eyebrow}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', animation: 'pulse 1.8s infinite' }} />
           Private · on-device · zero upload
         </span>
@@ -66,8 +66,11 @@ export default function Landing() {
           </Link>
         </div>
 
-        {/* Editorial soundwave motif, offset to break the grid */}
-        <div aria-hidden style={{ marginTop: 56, opacity: 0.9 }}>
+        {/* Soundwave motif inside a frosted glass panel */}
+        <div aria-hidden className="frost" style={{
+          marginTop: 56, padding: '26px 28px', borderRadius: 'var(--radius-card)',
+          background: 'var(--bg-card)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)',
+        }}>
           <Waveform />
         </div>
       </header>
@@ -86,11 +89,16 @@ export default function Landing() {
           </p>
         </div>
 
-        <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+        <ol className="frost" style={{
+          listStyle: 'none', display: 'flex', flexDirection: 'column',
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-card)',
+          padding: '8px clamp(20px, 3vw, 32px)',
+        }}>
           {features.map((f, i) => (
             <li key={f.n} style={{
               display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 'clamp(16px, 3vw, 32px)',
-              padding: '26px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              padding: '24px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
               alignItems: 'baseline',
             }}>
               <span className="mono" style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 500 }}>{f.n}</span>
@@ -105,10 +113,10 @@ export default function Landing() {
 
       {/* ── Privacy band ────────────────────────────────────────────────── */}
       <section style={{ padding: '0 clamp(20px, 5vw, 40px) clamp(64px, 10vw, 120px)' }}>
-        <div style={{
+        <div className="frost" style={{
           maxWidth: 1080, margin: '0 auto', borderRadius: 'var(--radius-card)',
-          background: 'var(--accent-soft)', border: '1px solid var(--accent-dim)',
-          padding: 'clamp(32px, 5vw, 56px)',
+          background: 'var(--accent-dim)', border: '1px solid var(--border-strong)',
+          padding: 'clamp(32px, 5vw, 56px)', boxShadow: 'var(--shadow-card)',
           display: 'flex', gap: 'clamp(20px, 4vw, 48px)', flexWrap: 'wrap',
           alignItems: 'center', justifyContent: 'space-between',
         }}>

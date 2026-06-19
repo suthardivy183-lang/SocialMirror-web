@@ -1,50 +1,53 @@
 /* ============================================================================
-   SocialMirror — "Warm editorial instrument"
-   A quiet, premium system: bone-paper atmosphere, ink gravitas, one terracotta
-   accent. Fraunces (display serif) for headlines, Hanken Grotesk for the
-   interface, JetBrains Mono for timecodes & figures.
+   SocialMirror — Glassmorphism system
+   Original purple identity, restyled as frosted glass with real depth:
+   translucent layered surfaces, backdrop blur, bright top-edge highlights,
+   over a soft vivid aurora so the frost actually refracts something.
    ========================================================================== */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* ---- Surfaces (warm paper, layered) -------------------------------------- */
-  --bg: #EFE9DF;            /* page — warm bone */
+  /* ---- Base & atmosphere --------------------------------------------------- */
+  --bg: #ECEDF7;                 /* cool light base behind the glass */
   --bg-elevated: #FFFFFF;
-  --bg-card: #FBF8F2;       /* cards — warm ivory, lifted from the page */
-  --bg-input: #F7F2E9;
-  --bg-subtle: #EAE2D4;     /* inset tracks / tiles — a touch deeper than card */
 
-  --border: #E2D9C9;        /* warm hairline */
-  --border-strong: #CFC3AE;
+  /* Frosted surfaces (translucent — pair with .frost for the blur) */
+  --bg-card: rgba(255, 255, 255, 0.62);
+  --bg-input: rgba(255, 255, 255, 0.58);
+  --bg-subtle: rgba(120, 112, 196, 0.09);   /* inset tracks / tiles */
 
-  /* ---- Ink & accent -------------------------------------------------------- */
-  --text: #211D16;          /* warm near-black */
-  --text-mid: #4F4940;
-  --muted: #8C8474;
+  --border: rgba(126, 119, 170, 0.16);      /* subtle edge + dividers */
+  --border-strong: rgba(127, 119, 221, 0.34);
 
-  --accent: #BC4A30;        /* terracotta / burnt sienna */
-  --accent-hover: #A23E27;
-  --accent-dim: rgba(188, 74, 48, 0.12);
-  --accent-soft: rgba(188, 74, 48, 0.06);
-  --accent-ink: #FBF6EE;    /* text on the accent */
+  /* ---- Brand (original purple) -------------------------------------------- */
+  --accent: #7F77DD;
+  --accent-hover: #6B63CC;
+  --accent-dim: rgba(127, 119, 221, 0.14);
+  --accent-soft: rgba(127, 119, 221, 0.06);
+  --accent-ink: #FFFFFF;
 
-  --green: #1C8A66;
-  --red: #C0402E;
+  --text: #1E1E2A;
+  --text-mid: #54515F;
+  --muted: #7E7B8C;
+  --green: #1D9E75;
+  --red: #E25160;
 
-  /* ---- Chrome / depth ------------------------------------------------------ */
-  --nav-bg: rgba(239, 233, 223, 0.72);
-  --shadow-card: 0 1px 2px rgba(60, 44, 24, 0.05), 0 6px 18px rgba(60, 44, 24, 0.05);
-  --shadow-pop: 0 18px 50px rgba(50, 36, 18, 0.16);
-  --shadow-accent: 0 10px 24px rgba(188, 74, 48, 0.28);
+  /* ---- Glass chrome / depth ----------------------------------------------- */
+  --nav-bg: rgba(255, 255, 255, 0.52);
+  --glass-blur: blur(22px) saturate(180%);
+  /* soft drop + bright inner top-edge = the glass tell */
+  --shadow-card: 0 8px 30px rgba(70, 60, 140, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --shadow-pop: 0 22px 60px rgba(60, 50, 130, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-accent: 0 10px 26px rgba(127, 119, 221, 0.42);
 
-  /* ---- Radii (a hierarchy, not one value) ---------------------------------- */
-  --radius-card: 18px;
-  --radius-input: 12px;
+  /* ---- Radii (hierarchy, not one value) ----------------------------------- */
+  --radius-card: 20px;
+  --radius-input: 13px;
   --radius-pill: 999px;
 
   /* ---- Type ---------------------------------------------------------------- */
-  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-display: 'Hanken Grotesk', system-ui, sans-serif;
   --font-body: 'Hanken Grotesk', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 
@@ -68,34 +71,25 @@ body {
   min-height: 100vh;
 }
 
-/* Atmosphere: warm radial glows + faint paper grain, fixed behind content. */
+/* Aurora: soft vivid blobs that the frosted glass refracts. Fixed, behind all. */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(120% 90% at 12% -10%, rgba(188, 74, 48, 0.10), transparent 55%),
-    radial-gradient(100% 80% at 100% 0%, rgba(190, 150, 70, 0.10), transparent 50%),
-    radial-gradient(120% 120% at 50% 120%, rgba(120, 95, 60, 0.07), transparent 60%);
+    radial-gradient(46% 40% at 12% 4%, rgba(127, 119, 221, 0.42), transparent 60%),
+    radial-gradient(42% 38% at 92% 8%, rgba(96, 165, 235, 0.38), transparent 60%),
+    radial-gradient(50% 44% at 78% 92%, rgba(206, 124, 214, 0.30), transparent 62%),
+    radial-gradient(46% 40% at 16% 96%, rgba(104, 206, 196, 0.26), transparent 60%);
   pointer-events: none;
-}
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  opacity: 0.035;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Headlines carry the editorial serif; UI labels stay on the grotesque. */
 h1, .display {
   font-family: var(--font-display);
-  font-optical-sizing: auto;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.04;
 }
 .mono { font-family: var(--font-mono); font-feature-settings: 'tnum' 1; }
 
@@ -114,35 +108,38 @@ button:active { transform: translateY(1px); }
 input, textarea, select { font-family: inherit; letter-spacing: inherit; }
 
 input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-elevated) inset !important;
   -webkit-text-fill-color: var(--text) !important;
 }
 
 ::selection { background: var(--accent); color: var(--accent-ink); }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
-::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-radius: 999px;
-  border: 2px solid var(--bg);
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
 
-/* ---- Motion ---------------------------------------------------------------- */
-@keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
-@keyframes rise {
-  from { opacity: 0; transform: translateY(14px) }
-  to { opacity: 1; transform: none }
+/* ---- Glass primitives ------------------------------------------------------ */
+/* .frost adds only the blur — cards already get translucent bg + glass shadow
+   from the tokens, so adding .frost never fights their inline styles. */
+.frost {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
-
-.fade-in { animation: fadeIn 0.32s var(--ease-out) both; }
+/* Self-contained glass surface for elements that don't already use the tokens. */
+.glass {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
 
 /* ---- Designed interaction states (work on <a> and <button> alike) ---------- */
 .btn {
@@ -154,21 +151,13 @@ input:-webkit-autofill {
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: translateY(0); }
 .btn-solid:hover { background: var(--accent-hover); box-shadow: var(--shadow-accent); }
-.btn-ghost:hover { border-color: var(--text); background: var(--bg-card); }
+.btn-ghost:hover { border-color: var(--accent); background: var(--bg-card); }
 .link-underline:hover { text-decoration-color: var(--accent) !important; }
 
-.card-hover {
-  transition: transform var(--dur) var(--ease-out),
-              box-shadow var(--dur) var(--ease-out),
-              border-color var(--dur) var(--ease-out);
-}
-.card-hover:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-pop);
-  border-color: var(--border-strong);
-}
+.card-hover { transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out); }
+.card-hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-pop); border-color: var(--border-strong); }
 
-/* Editorial two-column split that collapses to one column on small screens. */
+/* Editorial two-column split that collapses on small screens. */
 .split-2 {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
@@ -180,7 +169,13 @@ input:-webkit-autofill {
   .split-2 .sticky-col { position: static !important; }
 }
 
-/* Staggered reveal for lists/sections — apply .reveal to a container's children. */
+/* ---- Motion ---------------------------------------------------------------- */
+@keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+@keyframes rise { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+
+.fade-in { animation: fadeIn 0.32s var(--ease-out) both; }
+
 .reveal > * { animation: rise 0.55s var(--ease-out) both; }
 .reveal > *:nth-child(1) { animation-delay: 0.02s }
 .reveal > *:nth-child(2) { animation-delay: 0.08s }
