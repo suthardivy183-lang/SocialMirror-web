@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import * as store from '../lib/store'
 import { speakerColor } from '../lib/colors'
 import TabBar from '../components/TabBar'
@@ -21,7 +21,6 @@ function fmtDate(iso: string) {
 }
 
 export default function Dashboard() {
-  const navigate = useNavigate()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
 

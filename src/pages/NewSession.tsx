@@ -46,6 +46,45 @@ const stddev = (a: number[]) => {
 }
 
 /**
+ * Extract per-speaker pitch & loudness from decoded audio so the vocal-delivery,
+ * rapport and dominance analyses work for file/device sessions (live mode gets
+ * these from the real-time mic poll instead). Samples a bounded number of short
+ * windows per segment and attributes them to that segment's speaker label.
+ */
+function computeAcoustics(
+  audio16k: Float32Array,
+  segments: Segment[],
+  labels: number[],
+): Record<number, { pitches: number[]; energies: number[] }> {
+  const SR = 16000
+  const WIN = 1024            // ~64 ms analysis window
+  const MAX_WIN_PER_SEG = 12  // cap work on long segments
+  const acc: Record<number, { pitches: number[]; energies: number[] }> = {}
+
+  segments.forEach((seg, i) => {
+    const spk = labels[i] ?? 0
+    const a = acc[spk] ?? (acc[spk] = { pitches: [], energies: [] })
+    const start = Math.max(0, Math.floor(seg.start * SR))
+    const end = Math.min(audio16k.length, Math.ceil(seg.end * SR))
+    if (end - start < WIN) return
+
+    const nWin = Math.min(MAX_WIN_PER_SEG, Math.floor((end - start) / WIN))
+    const step = Math.max(WIN, Math.floor((end - start - WIN) / Math.max(1, nWin)))
+    for (let off = start; off + WIN <= end; off += step) {
+      const buf = audio16k.subarray(off, off + WIN)
+      let sq = 0
+      for (let k = 0; k < buf.length; k++) sq += buf[k] * buf[k]
+      const rms = Math.sqrt(sq / buf.length)
+      if (rms < 0.005) continue // skip near-silence
+      a.energies.push(20 * Math.log10(Math.max(rms, 1e-4)))
+      const pitch = detectPitch(buf, SR)
+      if (pitch > 0) a.pitches.push(pitch)
+    }
+  })
+  return acc
+}
+
+/**
  * Naively assign speakers to transcript segments by detecting long pauses.
  * Gaps > SWITCH_GAP seconds trigger a speaker change (round-robin).
  */
@@ -249,9 +288,16 @@ export default function NewSession() {
         console.warn('Diarization unavailable, using pause-based fallback:', e)
       }
 
-      const finalLines: Line[] = labels
-        ? segments.map((s, i) => ({ id: `l${i}`, speaker: labels![i], text: s.text, time: s.start }))
-        : assignSpeakers(segments, speakerCount || 2)
+      // Use voice-clustered labels when available, else pause-based fallback.
+      const speakerLabels: number[] = labels
+        ?? assignSpeakers(segments, speakerCount || 2).map(l => l.speaker)
+
+      // Extract pitch/energy per speaker so vocal-delivery analysis is real.
+      acousticRef.current = computeAcoustics(audio16k, segments, speakerLabels)
+
+      const finalLines: Line[] = segments.map((s, i) => ({
+        id: `l${i}`, speaker: speakerLabels[i], text: s.text, time: s.start,
+      }))
       linesRef.current = finalLines
       setLines(finalLines)
 

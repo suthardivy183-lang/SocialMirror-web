@@ -147,6 +147,17 @@ function relabelByFirstAppearance(labels: number[]): number[] {
   })
 }
 
+/**
+ * Pure clustering core: turn voice embeddings into ordered speaker labels.
+ * Exported so it can be unit-tested without loading the model.
+ */
+export function labelSpeakers(embeddings: Float32Array[], target: number | 'auto'): number[] {
+  if (embeddings.length === 0) return []
+  if (embeddings.length === 1) return [0]
+  if (typeof target === 'number' && target <= 1) return new Array(embeddings.length).fill(0)
+  return relabelByFirstAppearance(clusterEmbeddings(embeddings, target))
+}
+
 // ── public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -170,5 +181,5 @@ export async function diarize(
     onProgress?.({ done: i + 1, total: segments.length })
   }
 
-  return relabelByFirstAppearance(clusterEmbeddings(embeddings, target))
+  return labelSpeakers(embeddings, target)
 }

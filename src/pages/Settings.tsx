@@ -19,7 +19,7 @@ export default function Settings() {
     })
   }, [])
 
-  async function signOut() { await store.signOut(); navigate('/auth') }
+  async function signOut() { await store.signOut(); navigate('/') }
   async function deleteAll() {
     await store.deleteAllSessions(userId)
     setConfirmDelete(false)
@@ -31,14 +31,16 @@ export default function Settings() {
       <main style={{ maxWidth: 620, margin: '0 auto', padding: '24px 20px' }}>
         {/* Account */}
         <Section title="Account">
-          <Row label="Signed in as" value={email} />
+          <Row label="Account" value={email === 'guest@local' ? 'Guest' : email} />
           {store.isLocalMode && (
             <p style={{ fontSize: 12, color: 'var(--muted)', padding: '0 16px 14px' }}>
-              Demo mode — data is stored locally in this browser.
+              Local mode — everything is stored privately in this browser. No sign-in needed.
             </p>
           )}
           <Divider />
-          <button onClick={signOut} style={rowButton('var(--accent)')}>Sign out</button>
+          <button onClick={signOut} style={rowButton('var(--accent)')}>
+            {store.isLocalMode ? 'Reset local data & exit' : 'Sign out'}
+          </button>
         </Section>
 
         {/* Privacy */}

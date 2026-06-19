@@ -11,7 +11,7 @@ import NewSession from './pages/NewSession'
 import SessionDetail from './pages/SessionDetail'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null }
+  state: { error: Error | null } = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
   componentDidCatch(error: Error, info: ErrorInfo) { console.error('App crash:', error, info) }
   render() {

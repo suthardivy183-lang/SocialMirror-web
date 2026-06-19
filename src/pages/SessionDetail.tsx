@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import * as store from '../lib/store'
 import { speakerColor } from '../lib/colors'
 import { radarDimensions, expressiveness, monotonyTip, countFillers, fillerBreakdown, fillerTip, FILLERS, questionStats, questionTip, interruptionStats, interruptionTip, backchannelStats, backchannelTip, emotionFor, arousalOf, textValence, emotionTip, entrainmentStats, entrainmentTip, type SpeakerFeatures } from '../lib/coaching'
@@ -23,7 +23,6 @@ const speakerName = (s: SpeakerFeatures) => s.name || `Speaker ${s.speakerID + 1
 
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<number | null>(null)
