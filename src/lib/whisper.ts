@@ -1,19 +1,11 @@
-// Lazy-loads Whisper in the browser via @xenova/transformers.
-// First call downloads the model from HuggingFace and caches it in the browser's
-// Cache API — subsequent calls use the cache instantly.
+// Transcription layer — runs in the browser (WASM Whisper) or in the Tauri
+// desktop app (faster-whisper Python sidecar).
 //
-// We use whisper-small.en (quantized ~240 MB): the most accurate Whisper model
-// that's still practical to download and run in the browser. Much better word
-// recognition than base/tiny, at the cost of a larger first-load download and
-// slower transcription.
-//
-// NOTE: @xenova/transformers is imported *dynamically* (not at the top level).
-// It's a large package that pulls in Node-only deps (onnxruntime-node, sharp);
-// a static import makes Vite's dependency scanner hang on startup. Loading it
-// lazily inside loadWhisper() keeps it out of the eager import graph.
+// When running inside Tauri, audio is sent to a local Python process using
+// faster-whisper + CrisperWhisper, which captures fillers (um/uh/ahh) that
+// browser Whisper deliberately omits.
 
 const MODEL_ID = 'Xenova/whisper-small.en'
-
 const WHISPER_SAMPLE_RATE = 16000
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,28 +13,155 @@ let _pipe: any = null
 
 export interface Segment {
   text: string
-  start: number // seconds
-  end: number   // seconds
+  start: number
+  end: number
 }
 
-export async function loadWhisper(
-  onProgress?: (pct: number) => void,
-): Promise<void> {
-  if (_pipe) return
-  const { pipeline, env } = await import('@xenova/transformers')
-  // Allow downloading from the default HuggingFace CDN
-  env.allowLocalModels = false
-  _pipe = await pipeline('automatic-speech-recognition', MODEL_ID, {
-    quantized: true,
-    progress_callback: (info: { status: string; progress?: number }) => {
-      if (info.status === 'downloading' && info.progress != null) {
-        onProgress?.(info.progress)
-      }
-    },
+export interface TranscribeProgress {
+  fraction: number
+  secondsDone: number
+  secondsTotal: number
+}
+
+/** A speaker-labelled transcript line from the native diarizer. */
+export interface SpeakerLine {
+  speaker: number   // 1-based: Speaker 1, 2, 3…
+  start: number
+  end: number
+  text: string
+  confidence: number
+}
+
+export interface TimelineSpan {
+  speaker: number
+  start: number
+  end: number
+}
+
+export interface NativeDiarization {
+  lines: SpeakerLine[]
+  timeline: TimelineSpan[]
+  speakerCount: number
+  diarizer: 'pyannote' | 'ecapa' | 'single'
+}
+
+// The desktop sidecar transcribes AND diarizes in one call. transcribeAudio()
+// returns plain segments for a uniform interface; the richer speaker data from
+// that same call is stashed here for the caller to pick up (one-shot).
+let _lastNativeDiarization: NativeDiarization | null = null
+
+/** Consume the diarization produced by the most recent native transcription
+ *  (desktop only). Returns null in the browser or after it's been read once. */
+export function takeNativeDiarization(): NativeDiarization | null {
+  const r = _lastNativeDiarization
+  _lastNativeDiarization = null
+  return r
+}
+
+export const SAMPLE_RATE = WHISPER_SAMPLE_RATE
+
+// ── Tauri detection ──────────────────────────────────────────────────────────
+
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+}
+
+// ── WAV encoder (Float32 PCM-16 mono) ───────────────────────────────────────
+
+function float32ToWav(samples: Float32Array, sampleRate: number): Uint8Array {
+  const numSamples = samples.length
+  const buffer = new ArrayBuffer(44 + numSamples * 2)
+  const view = new DataView(buffer)
+
+  const w32 = (off: number, val: number) => view.setUint32(off, val, true)
+  const w16 = (off: number, val: number) => view.setUint16(off, val, true)
+
+  // RIFF header
+  view.setUint32(0, 0x46464952, false)   // 'RIFF'
+  w32(4, 36 + numSamples * 2)
+  view.setUint32(8, 0x45564157, false)   // 'WAVE'
+  // fmt  chunk
+  view.setUint32(12, 0x20746d66, false)  // 'fmt '
+  w32(16, 16); w16(20, 1); w16(22, 1)   // PCM, mono
+  w32(24, sampleRate); w32(28, sampleRate * 2); w16(32, 2); w16(34, 16)
+  // data chunk
+  view.setUint32(36, 0x61746164, false)  // 'data'
+  w32(40, numSamples * 2)
+
+  for (let i = 0; i < numSamples; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]))
+    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true)
+  }
+  return new Uint8Array(buffer)
+}
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
+// ── Native (Tauri) transcription path ───────────────────────────────────────
+
+async function transcribeNative(
+  audio16k: Float32Array,
+  numSpeakers: number,
+  onProgress?: (p: TranscribeProgress) => void,
+): Promise<Segment[]> {
+  const { invoke } = await import('@tauri-apps/api/core')
+
+  // Signal start
+  const secondsTotal = audio16k.length / WHISPER_SAMPLE_RATE
+  onProgress?.({ fraction: 0.05, secondsDone: 0, secondsTotal })
+
+  const wavBytes = float32ToWav(audio16k, WHISPER_SAMPLE_RATE)
+  const audioB64 = uint8ToBase64(wavBytes)
+
+  onProgress?.({ fraction: 0.1, secondsDone: 0, secondsTotal })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = await invoke<any>('transcribe_audio', {
+    audioB64,
+    numSpeakers,
   })
+
+  if (result.error) throw new Error(result.error)
+
+  onProgress?.({ fraction: 1, secondsDone: secondsTotal, secondsTotal })
+
+  // Stash the speaker diarization done by the sidecar so the caller can use it
+  // directly instead of running browser-side WavLM clustering.
+  if (Array.isArray(result.lines)) {
+    _lastNativeDiarization = {
+      lines: result.lines.map((l: SpeakerLine) => ({
+        speaker: l.speaker, start: l.start, end: l.end,
+        text: (l.text ?? '').trim(), confidence: l.confidence ?? 0,
+      })),
+      timeline: result.timeline ?? [],
+      speakerCount: result.speaker_count ?? 1,
+      diarizer: result.diarizer ?? 'single',
+    }
+  } else {
+    _lastNativeDiarization = null
+  }
+
+  const segments: Segment[] = (result.segments ?? [])
+    .map((s: { text: string; start: number; end: number }) => ({
+      text: s.text.trim(),
+      start: s.start,
+      end: s.end,
+    }))
+    .filter((s: Segment) => s.text.length > 0)
+
+  return segments
 }
 
-/** Resample Float32Array from sourceSR to 16 000 Hz (Whisper input). */
+// ── Browser (WASM) path ──────────────────────────────────────────────────────
+
+/** Resample Float32Array from sourceSR to 16 000 Hz. */
 function resampleTo16k(audio: Float32Array, sourceSR: number): Float32Array {
   if (sourceSR === WHISPER_SAMPLE_RATE) return audio
   const ratio = sourceSR / WHISPER_SAMPLE_RATE
@@ -58,53 +177,26 @@ function resampleTo16k(audio: Float32Array, sourceSR: number): Float32Array {
   return out
 }
 
-/**
- * Boost quiet recordings so low-volume speech reaches Whisper clearly.
- *
- * Steps:
- *  1. Remove any DC offset (constant bias from the mic/encoder).
- *  2. Scale the whole signal toward a comfortable speech level (RMS-based), so
- *     a clip recorded at -40 dB is amplified just like a normal one. A gain cap
- *     prevents near-silent files from having their noise floor blown up.
- *  3. Hard-clamp the rare transient that overshoots ±1 after the boost.
- *
- * RMS (average energy) is used rather than peak so that one loud cough doesn't
- * stop the quiet conversation around it from being amplified.
- */
 function normalizeLoudness(audio: Float32Array): Float32Array {
   const n = audio.length
   if (n === 0) return audio
-
-  // 1. DC offset
   let sum = 0
   for (let i = 0; i < n; i++) sum += audio[i]
   const dc = sum / n
-
-  // 2. RMS after DC removal
   let sq = 0
-  for (let i = 0; i < n; i++) {
-    const v = audio[i] - dc
-    sq += v * v
-  }
+  for (let i = 0; i < n; i++) { const v = audio[i] - dc; sq += v * v }
   const rms = Math.sqrt(sq / n)
-  if (rms < 1e-5) return audio // effectively silent — nothing to boost
-
-  const TARGET_RMS = 0.12 // ~ -18 dBFS, a comfortable speech loudness
-  const MAX_GAIN = 30     // cap so faint background hiss isn't amplified to a roar
-  const gain = Math.min(TARGET_RMS / rms, MAX_GAIN)
-
-  // 3. Apply gain with a safety clamp
+  if (rms < 1e-5) return audio
+  const gain = Math.min(0.12 / rms, 30)
   const out = new Float32Array(n)
   for (let i = 0; i < n; i++) {
     let v = (audio[i] - dc) * gain
-    if (v > 1) v = 1
-    else if (v < -1) v = -1
+    if (v > 1) v = 1; else if (v < -1) v = -1
     out[i] = v
   }
   return out
 }
 
-/** Mix a decoded buffer down to a single mono channel. */
 function toMono(decoded: AudioBuffer): Float32Array {
   if (decoded.numberOfChannels === 1) return decoded.getChannelData(0)
   const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) =>
@@ -119,55 +211,52 @@ function toMono(decoded: AudioBuffer): Float32Array {
   return mixed
 }
 
-const CHUNK_LENGTH_S = 30
-const STRIDE_LENGTH_S = 5
-
-/** Progress while transcribing: 0..1 fraction, plus seconds done / total. */
-export interface TranscribeProgress {
-  fraction: number
-  secondsDone: number
-  secondsTotal: number
+export async function loadWhisper(onProgress?: (pct: number) => void): Promise<void> {
+  if (isTauri()) return // browser model not needed in desktop mode
+  if (_pipe) return
+  const { pipeline, env } = await import('@xenova/transformers')
+  env.allowLocalModels = false
+  _pipe = await pipeline('automatic-speech-recognition', MODEL_ID, {
+    quantized: true,
+    progress_callback: (info: { status: string; progress?: number }) => {
+      if (info.status === 'downloading' && info.progress != null) {
+        onProgress?.(info.progress)
+      }
+    },
+  })
 }
 
-/** Sample rate Whisper (and the diarizer) expect. */
-export const SAMPLE_RATE = WHISPER_SAMPLE_RATE
-
-/**
- * Decode an audio Blob to a mono, 16 kHz, loudness-normalized Float32Array.
- * Exposed separately so the same buffer can be reused for diarization without
- * decoding twice.
- */
 export async function decodeAudio(file: Blob): Promise<Float32Array> {
   const arrayBuffer = await file.arrayBuffer()
   const audioCtx = new AudioContext()
   const decoded = await audioCtx.decodeAudioData(arrayBuffer)
   audioCtx.close()
-
   const mono = toMono(decoded)
   const audio16k = resampleTo16k(mono, decoded.sampleRate)
   return normalizeLoudness(audio16k)
 }
 
-/**
- * Transcribes prepared 16 kHz audio. Returns segments with start/end timestamps.
- *
- * Whisper processes long audio in sequential 30 s chunks. `onProgress` fires
- * after each chunk so the UI can show real progress instead of looking frozen.
- */
+const CHUNK_LENGTH_S = 30
+const STRIDE_LENGTH_S = 5
+
 export async function transcribeAudio(
   audio16k: Float32Array,
   onProgress?: (p: TranscribeProgress) => void,
+  numSpeakers = 0,
 ): Promise<Segment[]> {
+  // Desktop: use faster-whisper sidecar
+  if (isTauri()) {
+    return transcribeNative(audio16k, numSpeakers, onProgress)
+  }
+
+  // Browser: WASM Whisper
   if (!_pipe) throw new Error('Call loadWhisper() first')
 
   const secondsTotal = audio16k.length / WHISPER_SAMPLE_RATE
-  // Mirror the library's chunking math so we can estimate total chunk count.
   const jump = WHISPER_SAMPLE_RATE * (CHUNK_LENGTH_S - 2 * STRIDE_LENGTH_S)
   const totalChunks = Math.max(1, Math.ceil(audio16k.length / jump))
   let chunksDone = 0
 
-  // The library's call signature is a huge union that doesn't include a bare
-  // Float32Array audio input cleanly; cast to a narrow callable for this use.
   const asr = _pipe as unknown as (
     audio: Float32Array,
     opts: {
@@ -192,7 +281,6 @@ export async function transcribeAudio(
     },
   })
 
-  // Preferred path: timestamped chunks (lets us separate speakers by pauses).
   if (result.chunks && result.chunks.length > 0) {
     const segments = result.chunks
       .map(c => ({
@@ -204,8 +292,6 @@ export async function transcribeAudio(
     if (segments.length > 0) return segments
   }
 
-  // Fallback: timestamp decoding produced nothing but we still have full text.
-  // Return it as one segment rather than dropping the whole transcript.
   if (result.text && result.text.trim().length > 0) {
     return [{ text: result.text.trim(), start: 0, end: secondsTotal }]
   }
@@ -213,11 +299,6 @@ export async function transcribeAudio(
   return []
 }
 
-/**
- * Convenience: decode + transcribe an audio Blob in one call.
- * The audio is mixed to mono, resampled to 16 kHz, and loudness-normalized so
- * quiet recordings transcribe as accurately as loud ones.
- */
 export async function transcribeFile(
   file: Blob,
   onProgress?: (p: TranscribeProgress) => void,
