@@ -5,7 +5,7 @@ import { speakerColor } from '../lib/colors'
 import { radarDimensions, expressiveness, monotonyTip, countFillers, fillerBreakdown, fillerTip, FILLERS, questionStats, questionTip, interruptionStats, interruptionTip, backchannelStats, backchannelTip, emotionFor, arousalOf, textValence, emotionTip, entrainmentStats, entrainmentTip, type SpeakerFeatures } from '../lib/coaching'
 import RadarChart from '../components/RadarChart'
 
-interface TLine { id: string; speakerID: number; text: string; startTime: number }
+interface TLine { id: string; speakerID: number; text: string; startTime: number; endTime?: number; confidence?: number }
 interface PauseStats { totalSilenceSec: number; talkRatio: number; avgPauseSec: number; longestPauseSec: number; pauseCount: number }
 interface Session {
   id: string; name: string; session_type: string; duration_seconds: number
@@ -20,6 +20,91 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 const speakerName = (s: SpeakerFeatures) => s.name || `Speaker ${s.speakerID + 1}`
+
+/**
+ * Horizontal "who-spoke-when" timeline. Each transcript line is drawn as a
+ * speaker-coloured block positioned by its time span; gaps are silence. A
+ * confidence dot per speaker reflects the diarizer's mean assignment certainty.
+ */
+function SpeakerTimeline({
+  lines, duration, nameFor,
+}: {
+  lines: TLine[]
+  duration: number
+  nameFor: (id: number) => string
+}) {
+  const total = Math.max(duration, ...lines.map(l => l.endTime ?? l.startTime + 2), 1)
+  const speakerIDs = [...new Set(lines.map(l => l.speakerID))].sort((a, b) => a - b)
+
+  // Mean confidence per speaker (when the diarizer reported it).
+  const confBySpeaker = new Map<number, number>()
+  for (const id of speakerIDs) {
+    const cs = lines.filter(l => l.speakerID === id && typeof l.confidence === 'number').map(l => l.confidence as number)
+    if (cs.length) confBySpeaker.set(id, cs.reduce((s, x) => s + x, 0) / cs.length)
+  }
+
+  const ticks = Array.from({ length: 5 }, (_, i) => Math.round((total * i) / 4))
+
+  return (
+    <div className="frost" style={{
+      background: 'var(--bg-card)', border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-card)', padding: 20, marginBottom: 22, boxShadow: 'var(--shadow-card)',
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.1em', marginBottom: 14 }}>
+        SPEAKER TIMELINE
+      </div>
+
+      {/* Track */}
+      <div style={{
+        position: 'relative', height: 34, background: 'var(--bg-subtle)',
+        borderRadius: 8, overflow: 'hidden',
+      }}>
+        {lines.map((l, i) => {
+          const start = l.startTime
+          const end = l.endTime ?? (lines[i + 1]?.startTime ?? start + 2)
+          const left = (start / total) * 100
+          const width = Math.max(0.4, ((end - start) / total) * 100)
+          return (
+            <div
+              key={l.id + i}
+              title={`${nameFor(l.speakerID)} · ${fmt(Math.round(start))}–${fmt(Math.round(end))}${l.confidence != null ? ` · ${Math.round(l.confidence * 100)}%` : ''}`}
+              style={{
+                position: 'absolute', top: 0, bottom: 0,
+                left: `${left}%`, width: `${width}%`,
+                background: speakerColor(l.speakerID), opacity: 0.85,
+              }}
+            />
+          )
+        })}
+      </div>
+
+      {/* Time axis */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+        {ticks.map((t, i) => (
+          <span key={i} style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-mono, monospace)' }}>{fmt(t)}</span>
+        ))}
+      </div>
+
+      {/* Legend with per-speaker confidence */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 14 }}>
+        {speakerIDs.map(id => {
+          const conf = confBySpeaker.get(id)
+          return (
+            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}>
+              <span style={{ width: 11, height: 11, borderRadius: 3, background: speakerColor(id) }} />
+              <span style={{ fontWeight: 600 }}>{nameFor(id)}</span>
+              {conf != null && (
+                <span style={{ color: 'var(--muted)' }}>
+                  {Math.round(conf * 100)}% conf
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -73,6 +158,15 @@ export default function SessionDetail() {
         <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 28 }}>
           {fmtDate(session.created_at)} · {fmt(session.duration_seconds)} · {session.speaker_count} speaker{session.speaker_count !== 1 ? 's' : ''}
         </p>
+
+        {/* Speaker timeline */}
+        {session.transcript.length > 0 && session.speaker_count > 1 && (
+          <SpeakerTimeline
+            lines={session.transcript}
+            duration={session.duration_seconds}
+            nameFor={nameFor}
+          />
+        )}
 
         {/* Coaching report */}
         {session.report && (

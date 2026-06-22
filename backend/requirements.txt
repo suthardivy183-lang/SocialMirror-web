@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
+# faster-whisper (CTranslate2) — WhisperX's transcription core, used directly
+# because WhisperX pins an old ctranslate2 with no wheel on recent Python.
+faster-whisper
+pyannote.audio
+librosa
+soundfile
+numpy
+torch
+torchaudio

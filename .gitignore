@@ -30,6 +30,16 @@ dist-ssr
 .env
 .vercel
 
+# abandoned desktop (Tauri) — not part of the web app; 1.9GB Rust build artifacts
+src-tauri/
+
+# python backend
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+__pycache__/
+*.pyc
+
 # vite temp files
 vite.config.ts.timestamp-*.mjs
 vitest.config.ts.timestamp-*.mjs

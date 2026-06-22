@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import * as store from '../lib/store'
 import { speakerColor } from '../lib/colors'
 import { generateReport, countHedges, scoreSpeaker, pauseStats, type SpeakerFeatures } from '../lib/coaching'
-import { loadWhisper, decodeAudio, transcribeAudio, type Segment } from '../lib/whisper'
-import { loadDiarizer, diarize } from '../lib/diarization'
+import { transcribeViaBackend, ApiError, backendHealthy } from '../lib/api'
 
 const SESSION_TYPES = [
   { value: 'meeting', label: 'Meeting', icon: '👥' },
@@ -15,7 +14,17 @@ const SESSION_TYPES = [
   { value: 'other', label: 'Other', icon: '💬' },
 ]
 
-interface Line { id: string; speaker: number; text: string; time: number }
+interface Line { id: string; speaker: number; text: string; time: number; end?: number; confidence?: number }
+
+/** Pick a MediaRecorder mime type the current browser actually supports. */
+function pickRecorderMime(): string {
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
+  if (typeof MediaRecorder === 'undefined') return ''
+  for (const c of candidates) {
+    if (MediaRecorder.isTypeSupported(c)) return c
+  }
+  return ''
+}
 
 /** Autocorrelation pitch detector (returns Hz, or 0 if no clear pitch). */
 function detectPitch(buf: Float32Array, sampleRate: number): number {
@@ -45,65 +54,6 @@ const stddev = (a: number[]) => {
   return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / a.length)
 }
 
-/**
- * Extract per-speaker pitch & loudness from decoded audio so the vocal-delivery,
- * rapport and dominance analyses work for uploaded-file sessions (live mode gets
- * these from the real-time mic poll instead). Samples a bounded number of short
- * windows per segment and attributes them to that segment's speaker label.
- */
-function computeAcoustics(
-  audio16k: Float32Array,
-  segments: Segment[],
-  labels: number[],
-): Record<number, { pitches: number[]; energies: number[] }> {
-  const SR = 16000
-  const WIN = 1024            // ~64 ms analysis window
-  const MAX_WIN_PER_SEG = 12  // cap work on long segments
-  const acc: Record<number, { pitches: number[]; energies: number[] }> = {}
-
-  segments.forEach((seg, i) => {
-    const spk = labels[i] ?? 0
-    const a = acc[spk] ?? (acc[spk] = { pitches: [], energies: [] })
-    const start = Math.max(0, Math.floor(seg.start * SR))
-    const end = Math.min(audio16k.length, Math.ceil(seg.end * SR))
-    if (end - start < WIN) return
-
-    const nWin = Math.min(MAX_WIN_PER_SEG, Math.floor((end - start) / WIN))
-    const step = Math.max(WIN, Math.floor((end - start - WIN) / Math.max(1, nWin)))
-    for (let off = start; off + WIN <= end; off += step) {
-      const buf = audio16k.subarray(off, off + WIN)
-      let sq = 0
-      for (let k = 0; k < buf.length; k++) sq += buf[k] * buf[k]
-      const rms = Math.sqrt(sq / buf.length)
-      if (rms < 0.005) continue // skip near-silence
-      a.energies.push(20 * Math.log10(Math.max(rms, 1e-4)))
-      const pitch = detectPitch(buf, SR)
-      if (pitch > 0) a.pitches.push(pitch)
-    }
-  })
-  return acc
-}
-
-/**
- * Naively assign speakers to transcript segments by detecting long pauses.
- * Gaps > SWITCH_GAP seconds trigger a speaker change (round-robin).
- */
-function assignSpeakers(segments: Segment[], totalSpeakers: number): Line[] {
-  const SWITCH_GAP = 1.5 // seconds of silence triggers speaker change
-  let speaker = 0
-  const lines: Line[] = []
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i]
-    if (!seg.text) continue
-    if (i > 0) {
-      const gap = seg.start - segments[i - 1].end
-      if (gap >= SWITCH_GAP) speaker = (speaker + 1) % Math.max(2, totalSpeakers)
-    }
-    lines.push({ id: `l${i}`, speaker, text: seg.text, time: seg.start })
-  }
-  return lines
-}
-
 export default function NewSession() {
   const navigate = useNavigate()
   const [mode, setMode] = useState<'live' | 'file'>('live')
@@ -116,7 +66,6 @@ export default function NewSession() {
   const [activeSpeaker, setActiveSpeaker] = useState(0)
   const [speakerCount, setSpeakerCount] = useState(2)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [modelProgress, setModelProgress] = useState(0)
   const [modelReady, setModelReady] = useState(false)
   const [modelError, setModelError] = useState('')
   const [transcribeProgress, setTranscribeProgress] = useState('')
@@ -135,22 +84,22 @@ export default function NewSession() {
   const acousticRef = useRef<Record<number, { pitches: number[]; energies: number[] }>>({})
   const pausesRef = useRef<number[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const recordingRef = useRef(false)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [lines])
 
-  // Pre-load Whisper model when user switches to file mode
+  // Transcription runs on the backend now. Check it's reachable so we can gate
+  // the upload button and show a clear message if the server is down.
   useEffect(() => {
-    if (mode !== 'file' || modelReady) return
-    setModelError('')
-    loadWhisper((pct) => setModelProgress(pct))
-      .then(() => setModelReady(true))
-      .catch((err) => {
-        console.error('Model load failed:', err)
-        setModelError('Failed to download the Whisper model. Check your connection and reload.')
-      })
-  }, [mode, modelReady])
+    backendHealthy().then(ok => {
+      setModelReady(ok)
+      setModelError(ok ? '' : 'Backend not reachable. Start the server or set VITE_API_URL.')
+    })
+  }, [])
 
   // ── LIVE RECORDING ──────────────────────────────────────────────────────────
 
@@ -159,7 +108,22 @@ export default function NewSession() {
     streamRef.current = stream
     setPhase('recording')
     startRef.current = Date.now()
+    recordingRef.current = true
     timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 500)
+
+    // Record the raw audio so we can run the real Whisper + voice-diarization
+    // pipeline on Stop. The Web Speech captions below are just a live preview.
+    chunksRef.current = []
+    try {
+      const mime = pickRecorderMime()
+      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      recorder.start(1000) // collect a chunk each second
+      recorderRef.current = recorder
+    } catch (err) {
+      console.warn('MediaRecorder unavailable; will save live captions only:', err)
+      recorderRef.current = null
+    }
 
     const ctx = new AudioContext()
     ctxRef.current = ctx
@@ -229,81 +193,135 @@ export default function NewSession() {
           setLines([...linesRef.current, { id: 'partial', speaker: spk, text, time: t }])
         }
       }
+
+      // The Web Speech API auto-stops after silence ("falls asleep"). Restart it
+      // automatically while we're still recording so the live preview keeps going.
+      rec.onend = () => {
+        if (recordingRef.current) {
+          try { rec.start() } catch { /* already starting; ignore */ }
+        }
+      }
+      rec.onerror = () => { /* onend fires next and handles the restart */ }
       rec.start()
     }
   }
 
   async function stopLive() {
+    recordingRef.current = false
     recognitionRef.current?.stop()
-    ctxRef.current?.close()
     if (timerRef.current) clearInterval(timerRef.current)
     if (pollRef.current) clearInterval(pollRef.current)
+
+    // Finalize the recorded audio before tearing down the stream.
+    const recorder = recorderRef.current
+    let audioBlob: Blob | null = null
+    if (recorder && recorder.state !== 'inactive') {
+      audioBlob = await new Promise<Blob>((resolve) => {
+        recorder.onstop = () => resolve(new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' }))
+        recorder.stop()
+      })
+    }
+
+    ctxRef.current?.close()
     streamRef.current?.getTracks().forEach(t => t.stop())
+
+    // Preferred path: re-transcribe the recording with Whisper and separate
+    // speakers by voice — robust to long pauses, and real diarization.
+    if (audioBlob && audioBlob.size > 1000) {
+      await runTranscription(audioBlob, 'No speech was detected in the recording.')
+      return
+    }
+
+    // Fallback (no MediaRecorder / empty recording): keep the live captions.
     setPhase('done')
     await saveSession(linesRef.current, elapsed)
   }
 
-  // ── WHISPER TRANSCRIPTION (file upload) ──────────────────────────────────────
+  // ── BACKEND TRANSCRIPTION (upload → FastAPI → speaker-labelled JSON) ──────────
 
-  /** Decode → transcribe → diarize-by-voice → save. */
-  const runTranscription = useCallback(async (audio: Blob, noSpeechHint: string) => {
+  /** Friendly, phase-aware label for the backend's progress messages. */
+  function phaseLabel(message: string): string {
+    const m = message.toLowerCase()
+    if (m.includes('upload')) return 'Uploading audio…'
+    if (m.includes('queue')) return 'Queued — waiting for the server…'
+    if (m.includes('loading models') || m.includes('starting')) return 'Loading models (first run is slower)…'
+    if (m.includes('transcrib')) return 'Transcribing speech…'
+    if (m.includes('diariz')) return 'Identifying speakers…'
+    if (m.includes('acoustic') || m.includes('analyz')) return 'Analyzing voice delivery…'
+    if (m.includes('finish') || m.includes('done')) return 'Finishing up…'
+    return message
+  }
+
+  /** Map a backend error code to a clear, actionable message. */
+  function friendlyError(err: unknown): string {
+    const code = err instanceof ApiError ? err.code : ''
+    switch (code) {
+      case 'backend_unavailable': return 'Can’t reach the server. Make sure the backend is running and VITE_API_URL is set.'
+      case 'server_busy': return 'The server is processing another clip. Wait a few seconds and try again.'
+      case 'missing_token': return 'Server is missing its HuggingFace token, so speaker detection is unavailable.'
+      case 'diarizer_unavailable': return 'Speaker-detection model isn’t ready on the server (license/token). '
+      case 'file_too_long': return err instanceof Error ? err.message : 'That clip is too long — try 30–90 seconds.'
+      case 'file_too_large': return err instanceof Error ? err.message : 'That file is too large.'
+      case 'unsupported_type': return err instanceof Error ? err.message : 'Unsupported audio format.'
+      case 'decode_failed': return 'Could not read that audio file. Try a different recording.'
+      default: return 'Error: ' + (err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  /** Upload → backend (WhisperX + pyannote + librosa) → save. */
+  const runTranscription = useCallback(async (audio: Blob, _noSpeechHint: string) => {
     setPhase('transcribing')
     setTranscribePct(0)
-    setTranscribeProgress('Reading and boosting audio…')
-
-    const mins = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+    setTranscribeProgress('Uploading audio…')
 
     try {
-      const audio16k = await decodeAudio(audio)
-      const segments = await transcribeAudio(audio16k, ({ fraction, secondsDone, secondsTotal }) => {
-        setTranscribePct(Math.round(fraction * 100))
-        setTranscribeProgress(`Transcribing with Whisper… ${mins(secondsDone)} / ${mins(secondsTotal)}`)
-      })
+      const result = await transcribeViaBackend(
+        audio,
+        speakerCount === 0 ? undefined : speakerCount,
+        (fraction, message) => {
+          setTranscribePct(Math.round(fraction * 100))
+          setTranscribeProgress(phaseLabel(message))
+        },
+      )
 
-      if (segments.length === 0) {
-        setTranscribeProgress(noSpeechHint)
+      if (result.transcript.length === 0) {
+        setTranscribeProgress('No speech was detected. Try a clearer recording.')
         return
       }
 
-      // Identify speakers by voice. Fall back to pause-based if the model
-      // can't load (e.g. offline) so we still produce a transcript.
-      let labels: number[] | null = null
-      try {
-        setTranscribePct(0)
-        setTranscribeProgress('Downloading speaker-ID model (first time only)…')
-        await loadDiarizer((pct) => setTranscribeProgress(`Downloading speaker-ID model… ${Math.round(pct)}%`))
-        labels = await diarize(
-          audio16k,
-          segments,
-          speakerCount === 0 ? 'auto' : speakerCount,
-          ({ done, total }) => {
-            setTranscribePct(Math.round((done / total) * 100))
-            setTranscribeProgress(`Identifying speakers by voice… ${done}/${total}`)
-          },
-        )
-      } catch (e) {
-        console.warn('Diarization unavailable, using pause-based fallback:', e)
-      }
-
-      // Use voice-clustered labels when available, else pause-based fallback.
-      const speakerLabels: number[] = labels
-        ?? assignSpeakers(segments, speakerCount || 2).map(l => l.speaker)
-
-      // Extract pitch/energy per speaker so vocal-delivery analysis is real.
-      acousticRef.current = computeAcoustics(audio16k, segments, speakerLabels)
-
-      const finalLines: Line[] = segments.map((s, i) => ({
-        id: `l${i}`, speaker: speakerLabels[i], text: s.text, time: s.start,
+      // Backend speaker ids are 1-based; the UI is 0-based.
+      const finalLines: Line[] = result.transcript.map((l, i) => ({
+        id: `l${i}`,
+        speaker: Math.max(0, l.speaker - 1),
+        text: l.text,
+        time: l.start,
+        end: l.end,
+        confidence: l.confidence,
       }))
+
+      // Feed the backend's per-speaker pitch/energy into acousticRef in the
+      // shape saveSession expects: two points whose mean = avg and population
+      // stddev = variance, so the existing mean()/stddev() reproduce them exactly.
+      const ac: Record<number, { pitches: number[]; energies: number[] }> = {}
+      for (const s of result.speakers) {
+        const id = Math.max(0, s.id - 1)
+        ac[id] = {
+          pitches: [s.avg_pitch - s.pitch_variance, s.avg_pitch + s.pitch_variance],
+          energies: [s.avg_energy_db - s.energy_variance, s.avg_energy_db + s.energy_variance],
+        }
+      }
+      acousticRef.current = ac
+
       linesRef.current = finalLines
       setLines(finalLines)
 
-      const duration = Math.ceil(segments[segments.length - 1].end)
+      const duration = Math.ceil(finalLines[finalLines.length - 1].end ?? finalLines[finalLines.length - 1].time)
 
-      // Compute pauses from gaps between segments
+      // Pauses from gaps between consecutive lines.
       const pauses: number[] = []
-      for (let i = 1; i < segments.length; i++) {
-        const gap = segments[i].start - segments[i - 1].end
+      for (let i = 1; i < finalLines.length; i++) {
+        const prevEnd = finalLines[i - 1].end ?? finalLines[i - 1].time
+        const gap = finalLines[i].time - prevEnd
         if (gap >= 0.5) pauses.push(gap)
       }
 
@@ -311,7 +329,7 @@ export default function NewSession() {
       await saveSession(finalLines, duration, pauses)
     } catch (err) {
       console.error('Transcription failed:', err)
-      setTranscribeProgress('Error: ' + (err instanceof Error ? err.message : String(err)))
+      setTranscribeProgress(friendlyError(err))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speakerCount, name, type])
@@ -370,7 +388,8 @@ export default function NewSession() {
       speaker_count: speakerIDs.length || 1,
       transcript: finalLines.map(l => ({
         id: l.id, speakerID: l.speaker, text: l.text,
-        startTime: l.time, endTime: l.time + 2,
+        startTime: l.time, endTime: l.end ?? l.time + 2,
+        confidence: l.confidence,
       })),
       speakers,
       report,
@@ -558,18 +577,12 @@ export default function NewSession() {
           </div>
         </div>
 
-        {/* Whisper model status — shown for file mode */}
+        {/* Backend status — shown for file mode */}
         {mode === 'file' && (
           <div style={{ marginBottom: 16 }}>
             {!modelReady && !modelError && (
-              <div style={{ marginBottom: 8, padding: '10px 14px', background: 'var(--accent-dim)', borderRadius: 10, border: '1px solid var(--accent)' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', marginBottom: 6 }}>
-                  Loading Whisper AI model… {modelProgress > 0 ? `${Math.round(modelProgress)}%` : ''}
-                </div>
-                <div style={{ height: 4, background: 'var(--accent-soft)', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${modelProgress}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.3s' }} />
-                </div>
-                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>~240 MB download (high-accuracy model), cached after first load</p>
+              <div style={{ marginBottom: 8, padding: '10px 14px', background: 'var(--accent-dim)', borderRadius: 10, border: '1px solid var(--accent)', fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+                Checking server…
               </div>
             )}
             {modelError && (
@@ -578,7 +591,9 @@ export default function NewSession() {
               </div>
             )}
             {modelReady && (
-              <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>✓ Whisper model ready</div>
+              <div style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>
+                ✓ Server ready · for best results upload a 30–90s clip
+              </div>
             )}
           </div>
         )}
@@ -634,7 +649,7 @@ export default function NewSession() {
               opacity: (!selectedFile || !modelReady) ? 0.45 : 1,
             }}
           >
-            {!modelReady ? 'Waiting for model…' : !selectedFile ? 'Choose a file first' : '🚀 Transcribe file'}
+            {!modelReady ? 'Waiting for server…' : !selectedFile ? 'Choose a file first' : '🚀 Transcribe file'}
           </button>
         )}
         </div>
