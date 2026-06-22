@@ -1,3 +1,13 @@
+---
+title: SocialMirror Backend
+emoji: 🎙️
+colorFrom: purple
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # SocialMirror backend (FastAPI)
 
 Audio in → speaker-labelled transcript + per-speaker acoustics out. Heavy ML runs

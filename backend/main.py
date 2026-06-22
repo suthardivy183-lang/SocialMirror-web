@@ -28,9 +28,10 @@ load_dotenv()
 
 app = FastAPI(title="SocialMirror API", version="1.0")
 
-_origins = [o.strip() for o in os.environ.get(
-    "CORS_ORIGINS", "http://localhost:5173,http://localhost:5174"
-).split(",") if o.strip()]
+# Default to allow-all for the MVP public API (no cookies/credentials used). Set
+# CORS_ORIGINS to a comma-separated allowlist to restrict.
+_origins_env = os.environ.get("CORS_ORIGINS", "*").strip()
+_origins = ["*"] if _origins_env == "*" else [o.strip() for o in _origins_env.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins or ["*"],
