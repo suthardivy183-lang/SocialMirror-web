@@ -1,0 +1,20 @@
+# Vercel only builds the React frontend. Exclude everything else so we don't
+# upload the abandoned desktop build artifacts or the Python backend.
+src-tauri/
+backend/
+sidecar/
+
+# stray media / audio
+*.mp3
+*.wav
+*.m4a
+*.webm
+*.mp4
+*.aac
+*.flac
+
+# caches / misc
+.venv/
+__pycache__/
+*.pyc
+.claude/
