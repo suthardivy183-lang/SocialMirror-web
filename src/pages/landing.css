@@ -33,8 +33,10 @@
   background: var(--peri);
   min-height: 100vh;
   letter-spacing: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
+
+.rl .rl-h1, .rl .rl-h2, .rl .rl-h3 { overflow-wrap: break-word; }
 
 .rl-wrap { max-width: 1240px; margin: 0 auto; padding-inline: clamp(18px, 4vw, 48px); }
 
@@ -77,7 +79,7 @@
   font-family: var(--fh); font-weight: 600; font-size: 15px;
   padding: 12px 22px; border-radius: var(--r-btn);
   border: 1.5px solid var(--line); background: var(--card); color: var(--ink);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-soft); white-space: nowrap;
   transition: transform 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms, background 140ms;
 }
 .rl-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(11,11,13,0.18); }
@@ -206,6 +208,17 @@ a:hover > .rl-arrow svg, .rl-arrow:hover svg { transform: translateX(4px); }
   .rl-split { grid-template-columns: 1fr; }
   .rl-split-media { order: -1; }
   .rl-nav-links { display: none; }
+}
+
+/* Small phones: keep the nav on one line, shrink the chrome */
+@media (max-width: 560px) {
+  .rl-wrap { padding-inline: 16px; }
+  .rl-nav-inner { height: 58px; gap: 8px; }
+  .rl-brand { font-size: 15px; gap: 7px; min-width: 0; }
+  .rl-brand-dot { width: 18px; height: 18px; flex: none; }
+  .rl-nav .rl-btn { padding: 8px 13px; font-size: 13px; }
+  .rl-hero-cta .rl-btn { flex: 1 1 auto; }
+  .rl-h1 { font-size: clamp(2.3rem, 11vw, 3.4rem); }
 }
 
 @media (prefers-reduced-motion: reduce) {
