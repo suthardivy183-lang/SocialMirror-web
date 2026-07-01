@@ -4,15 +4,12 @@ import * as store from '../lib/store'
 import { speakerColor } from '../lib/colors'
 import TabBar from '../components/TabBar'
 import TopBar from '../components/TopBar'
+import { TypeIcon, MicIcon } from '../components/Icons'
 
 interface Session {
   id: string; name: string; session_type: string
   duration_seconds: number; speaker_count: number
   created_at: string; report: { headline: string } | null
-}
-
-const ICONS: Record<string, string> = {
-  interview: '🎯', meeting: '👥', negotiation: '⚖️', call: '📞', podcast: '🎙️', other: '💬',
 }
 
 function fmt(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
@@ -57,7 +54,7 @@ export default function Dashboard() {
             border: '1px solid var(--border)', borderRadius: 'var(--radius-card)',
             background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)',
           }}>
-            <div style={{ fontSize: 46, marginBottom: 14 }}>🎙️</div>
+            <div style={{ color: 'var(--accent)', marginBottom: 14, display: 'flex', justifyContent: 'center' }}><MicIcon size={44} /></div>
             <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>No sessions yet</h2>
             <p style={{ color: 'var(--muted)', marginBottom: 24, fontSize: 14 }}>
               Record your first conversation to get coaching insights.
@@ -90,8 +87,8 @@ export default function Dashboard() {
               }}>
                 <div style={{
                   width: 44, height: 44, borderRadius: 12, background: 'var(--accent-dim)',
-                  display: 'grid', placeItems: 'center', fontSize: 22, flexShrink: 0,
-                }}>{ICONS[s.session_type] ?? '💬'}</div>
+                  display: 'grid', placeItems: 'center', color: 'var(--accent)', flexShrink: 0,
+                }}><TypeIcon type={s.session_type} /></div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{s.name}</div>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>

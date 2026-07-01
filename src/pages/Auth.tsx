@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import * as store from '../lib/store'
+import { WaveIcon } from '../components/Icons'
 
 function GoogleIcon() {
   return (
@@ -74,8 +75,8 @@ export default function Auth() {
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{
             width: 52, height: 52, borderRadius: 14, background: 'var(--accent-dim)',
-            display: 'grid', placeItems: 'center', fontSize: 26, margin: '0 auto 20px',
-          }}>〰️</div>
+            display: 'grid', placeItems: 'center', color: 'var(--accent)', margin: '0 auto 20px',
+          }}><WaveIcon size={26} /></div>
           <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em' }}>
             {isSignUp ? 'Create an account' : 'Welcome back'}
           </h1>

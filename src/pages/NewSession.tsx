@@ -4,14 +4,15 @@ import * as store from '../lib/store'
 import { speakerColor } from '../lib/colors'
 import { generateReport, countHedges, scoreSpeaker, pauseStats, type SpeakerFeatures } from '../lib/coaching'
 import { transcribeViaBackend, ApiError, backendHealthy } from '../lib/api'
+import { TypeIcon, WaveIcon, MusicIcon, UploadIcon } from '../components/Icons'
 
 const SESSION_TYPES = [
-  { value: 'meeting', label: 'Meeting', icon: '👥' },
-  { value: 'interview', label: 'Interview', icon: '🎯' },
-  { value: 'call', label: 'Call', icon: '📞' },
-  { value: 'podcast', label: 'Podcast', icon: '🎙️' },
-  { value: 'negotiation', label: 'Negotiation', icon: '⚖️' },
-  { value: 'other', label: 'Other', icon: '💬' },
+  { value: 'meeting', label: 'Meeting' },
+  { value: 'interview', label: 'Interview' },
+  { value: 'call', label: 'Call' },
+  { value: 'podcast', label: 'Podcast' },
+  { value: 'negotiation', label: 'Negotiation' },
+  { value: 'other', label: 'Other' },
 ]
 
 interface Line { id: string; speaker: number; text: string; time: number; end?: number; confidence?: number }
@@ -409,7 +410,7 @@ export default function NewSession() {
   if (phase === 'done') return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>⚙️</div>
+        <div style={{ color: 'var(--accent)', marginBottom: 16, display: 'flex', justifyContent: 'center' }}><WaveIcon size={46} /></div>
         <h2 style={{ fontSize: 22, fontWeight: 700 }}>Saving session…</h2>
       </div>
     </div>
@@ -420,7 +421,7 @@ export default function NewSession() {
   if (phase === 'transcribing') return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
       <div style={{ textAlign: 'center', maxWidth: 420 }}>
-        <div style={{ fontSize: 48, marginBottom: 20 }}>🎙️</div>
+        <div style={{ color: 'var(--accent)', marginBottom: 20, display: 'flex', justifyContent: 'center' }}><WaveIcon size={46} /></div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Transcribing audio</h2>
         <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 12, lineHeight: 1.6 }}>{transcribeProgress}</p>
         {transcribePct > 0 && (
@@ -521,7 +522,7 @@ export default function NewSession() {
               color: mode === m ? '#fff' : 'var(--muted)', border: 'none',
               transition: 'all 0.15s',
             }}>
-              {m === 'live' ? '🎙️ Live mic' : '📁 Upload'}
+              {m === 'live' ? 'Live mic' : 'Upload'}
             </button>
           ))}
         </div>
@@ -571,7 +572,7 @@ export default function NewSession() {
                 color: type === t.value ? 'var(--accent)' : 'var(--muted)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
               }}>
-                <span style={{ fontSize: 22 }}>{t.icon}</span>{t.label}
+                <TypeIcon type={t.value} size={22} />{t.label}
               </button>
             ))}
           </div>
@@ -619,7 +620,7 @@ export default function NewSession() {
               background: selectedFile ? 'var(--accent-dim)' : 'var(--bg-input)', color: selectedFile ? 'var(--accent)' : 'var(--muted)',
               fontSize: 14, fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
             }}>
-              <span style={{ fontSize: 28 }}>{selectedFile ? '🎵' : '📂'}</span>
+              <span style={{ display: 'flex' }}>{selectedFile ? <MusicIcon size={26} /> : <UploadIcon size={26} />}</span>
               {selectedFile ? selectedFile.name : 'Click to choose an audio file'}
               <span style={{ fontSize: 12, opacity: 0.7 }}>
                 {selectedFile
@@ -638,7 +639,7 @@ export default function NewSession() {
           <button onClick={startLive} style={{
             width: '100%', padding: 15, borderRadius: 12, fontSize: 16, fontWeight: 700,
             background: 'var(--accent)', color: '#fff', border: 'none',
-          }}>🎙️ Start recording</button>
+          }}>Start recording</button>
         ) : (
           <button
             onClick={startFile}
@@ -649,7 +650,7 @@ export default function NewSession() {
               opacity: (!selectedFile || !modelReady) ? 0.45 : 1,
             }}
           >
-            {!modelReady ? 'Waiting for server…' : !selectedFile ? 'Choose a file first' : '🚀 Transcribe file'}
+            {!modelReady ? 'Waiting for server…' : !selectedFile ? 'Choose a file first' : 'Transcribe file'}
           </button>
         )}
         </div>

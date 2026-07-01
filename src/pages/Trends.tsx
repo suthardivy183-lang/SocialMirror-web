@@ -4,6 +4,7 @@ import type { DbSession } from '../lib/store'
 import type { SpeakerFeatures } from '../lib/coaching'
 import TabBar from '../components/TabBar'
 import TopBar from '../components/TopBar'
+import { ChartIcon } from '../components/Icons'
 
 interface Agg {
   total: number
@@ -105,7 +106,7 @@ export default function Trends() {
 function Empty() {
   return (
     <div className="frost" style={{ textAlign: 'center', padding: '80px 24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', boxShadow: 'var(--shadow-card)' }}>
-      <div style={{ fontSize: 44, marginBottom: 14 }}>📈</div>
+      <div style={{ color: 'var(--accent)', marginBottom: 14, display: 'flex', justifyContent: 'center' }}><ChartIcon size={42} /></div>
       <h2 style={{ fontSize: 19, fontWeight: 700, marginBottom: 8 }}>No trends yet</h2>
       <p style={{ color: 'var(--muted)', fontSize: 14 }}>Record a few sessions to see your patterns over time.</p>
     </div>

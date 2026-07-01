@@ -4,6 +4,7 @@ import * as store from '../lib/store'
 import { speakerColor } from '../lib/colors'
 import { radarDimensions, expressiveness, monotonyTip, countFillers, fillerBreakdown, fillerTip, FILLERS, questionStats, questionTip, interruptionStats, interruptionTip, backchannelStats, backchannelTip, emotionFor, arousalOf, textValence, emotionTip, entrainmentStats, entrainmentTip, type SpeakerFeatures } from '../lib/coaching'
 import RadarChart from '../components/RadarChart'
+import { Bulb, PencilIcon } from '../components/Icons'
 
 interface TLine { id: string; speakerID: number; text: string; startTime: number; endTime?: number; confidence?: number }
 interface PauseStats { totalSilenceSec: number; talkRatio: number; avgPauseSec: number; longestPauseSec: number; pauseCount: number }
@@ -178,7 +179,7 @@ export default function SessionDetail() {
             <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.02em' }}>{session.report.headline}</h2>
             <p style={{ fontSize: 15, color: 'var(--text-mid)', lineHeight: 1.65, marginBottom: 16 }}>{session.report.insight}</p>
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', display: 'flex', gap: 10 }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+              <span style={{ flexShrink: 0, display: 'flex' }}><Bulb size={16} /></span>
               <p style={{ fontSize: 14, lineHeight: 1.6 }}>{session.report.tip}</p>
             </div>
           </div>
@@ -201,7 +202,6 @@ export default function SessionDetail() {
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
                 {perSpeaker.map(({ s, emotion }) => (
                   <div key={s.speakerID} style={{ flex: '1 1 130px', background: 'var(--bg-subtle)', borderRadius: 12, padding: 14, textAlign: 'center' }}>
-                    <div style={{ fontSize: 30, marginBottom: 6 }}>{emotion.emoji}</div>
                     <div style={{ fontSize: 14, fontWeight: 700 }}>{emotion.label}</div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: speakerColor(s.speakerID) }} />
@@ -212,15 +212,15 @@ export default function SessionDetail() {
               </div>
               {/* valence trend */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--muted)' }}>
-                <span>Start {firstVal >= 0 ? '🙂' : '🙁'}</span>
+                <span>Start</span>
                 <div style={{ flex: 1, height: 6, background: 'var(--bg-subtle)', borderRadius: 3, position: 'relative' }}>
                   <div style={{ position: 'absolute', left: '50%', top: -2, width: 1, height: 10, background: 'var(--border-strong)' }} />
                   <div style={{ position: 'absolute', left: `${((overall + 1) / 2) * 100}%`, top: -3, width: 12, height: 12, borderRadius: '50%', background: overall >= 0 ? 'var(--green)' : 'var(--red)', transform: 'translateX(-50%)' }} />
                 </div>
-                <span>End {lastVal >= 0 ? '🙂' : '🙁'}</span>
+                <span>End</span>
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-mid)', marginTop: 16, lineHeight: 1.55 }}>
-                💡 {emotionTip(overall, lastVal - firstVal)}
+                <Bulb size={13} /> {emotionTip(overall, lastVal - firstVal)}
               </p>
             </div>
           )
@@ -267,7 +267,7 @@ export default function SessionDetail() {
               <PauseStat value={`${session.pauses.totalSilenceSec}s`} label="Total silence" />
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-mid)', marginTop: 16, lineHeight: 1.55 }}>
-              💡 {pauseTip(session.pauses)}
+              <Bulb size={13} /> {pauseTip(session.pauses)}
             </p>
           </div>
         )}
@@ -303,7 +303,7 @@ export default function SessionDetail() {
               })}
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-mid)', marginTop: 16, lineHeight: 1.55 }}>
-              💡 {monotonyTip(expressiveness(speakers.find(s => s.speakerID === 0) ?? speakers[0]))}
+              <Bulb size={13} /> {monotonyTip(expressiveness(speakers.find(s => s.speakerID === 0) ?? speakers[0]))}
             </p>
           </div>
         )}
@@ -336,7 +336,7 @@ export default function SessionDetail() {
                 </div>
               )}
               <p style={{ fontSize: 13, color: 'var(--text-mid)', marginTop: 16, lineHeight: 1.55 }}>
-                💡 {fillerTip(perMin, topWord)}
+                <Bulb size={13} /> {fillerTip(perMin, topWord)}
               </p>
             </div>
           )
@@ -377,7 +377,7 @@ export default function SessionDetail() {
                 </div>
               )}
               <p style={{ fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.55 }}>
-                💡 {questionTip(q.ratio, q.questions, session.session_type)}
+                <Bulb size={13} /> {questionTip(q.ratio, q.questions, session.session_type)}
               </p>
             </div>
           )
@@ -411,7 +411,7 @@ export default function SessionDetail() {
                 </div>
               )}
               <p style={{ fontSize: 13, color: 'var(--text-mid)', marginTop: 16, lineHeight: 1.55 }}>
-                💡 {backchannelTip(bc.score, bc.count, true)}
+                <Bulb size={13} /> {backchannelTip(bc.score, bc.count, true)}
               </p>
             </div>
           )
@@ -442,7 +442,7 @@ export default function SessionDetail() {
                 ))}
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.55 }}>
-                💡 {interruptionTip(userMade, ir.total)}
+                <Bulb size={13} /> {interruptionTip(userMade, ir.total)}
               </p>
             </div>
           )
@@ -492,7 +492,7 @@ export default function SessionDetail() {
                 </div>
               )}
               <p style={{ fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.55 }}>
-                💡 {entrainmentTip(ent.score)}
+                <Bulb size={13} /> {entrainmentTip(ent.score)}
               </p>
             </div>
           )
@@ -519,7 +519,7 @@ export default function SessionDetail() {
                     ) : (
                       <button onClick={() => { setEditing(s.speakerID); setDraftName(s.name ?? '') }}
                         style={{ flex: 1, textAlign: 'left', fontWeight: 700, fontSize: 14, background: 'none', border: 'none', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {speakerName(s)} <span style={{ fontSize: 11, color: 'var(--muted)' }}>✎</span>
+                        {speakerName(s)} <span style={{ color: 'var(--muted)', display: 'flex' }}><PencilIcon size={12} /></span>
                       </button>
                     )}
                   </div>
