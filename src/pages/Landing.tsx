@@ -66,7 +66,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="rl-split-media">
-            <WaveVisual />
+            <Photo src={PHOTOS.collab} alt="Two colleagues talking over a laptop" />
           </div>
         </div>
       </section>
@@ -127,7 +127,7 @@ export default function Landing() {
                 move — more questions asked, fewer fillers, a fairer share of the floor.
               </p>
               <div className="rl-viz rl-viz--tall" style={{ marginTop: 22, flex: 1 }}>
-                <TrendVisual />
+                <Photo src={PHOTOS.team} alt="A diverse team in discussion" />
               </div>
             </div>
           </div>
@@ -154,7 +154,7 @@ export default function Landing() {
       <section className="rl-section rl-section--paper">
         <div className="rl-wrap rl-split">
           <a href="https://socialmirror-nine.vercel.app" target="_blank" rel="noreferrer" className="rl-split-media" style={{ display: 'block', position: 'relative' }}>
-            <WaveVisual play />
+            <Photo src={PHOTOS.warm} alt="Two people in conversation at a desk" />
             <span style={{
               position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
             }}>
@@ -223,7 +223,7 @@ export default function Landing() {
           </div>
           <div className="rl-footer-bottom">
             <span>© 2026 SocialMirror · Divy Suthar · Parul University</span>
-            <span>Built with Whisper · pyannote · librosa</span>
+            <span>Built with Whisper · pyannote · librosa · Photos: Unsplash</span>
           </div>
         </div>
       </footer>
@@ -302,33 +302,15 @@ function TalkBar() {
   )
 }
 
-function WaveVisual({ play }: { play?: boolean }) {
-  const bars = [24, 42, 66, 38, 82, 54, 96, 60, 74, 44, 88, 50, 70, 34, 58, 28, 46, 20, 64, 40, 78, 52, 90, 36]
-  return (
-    <div style={{ height: '100%', background: play ? 'var(--peri-deep)' : 'linear-gradient(180deg,#EEF1FF,#DDE4FF)' }}>
-      <div className="rl-wave">
-        {bars.map((h, i) => (
-          <i key={i} style={{ height: `${h}%`, background: i % 4 === 2 ? 'var(--magenta)' : 'var(--ink)', opacity: i % 4 === 2 ? 1 : 0.82 }} />
-        ))}
-      </div>
-    </div>
-  )
+// Free Unsplash photos (permanent CDN URLs, no local assets needed).
+const PHOTOS = {
+  collab: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=1200&q=80&auto=format&fit=crop',
+  team: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=1200&q=80&auto=format&fit=crop',
+  warm: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1200&q=80&auto=format&fit=crop',
 }
 
-function TrendVisual() {
-  return (
-    <div className="rl-trend" style={{ background: 'linear-gradient(180deg,#fff,#F5F7FF)' }}>
-      <svg viewBox="0 0 320 120" width="100%" height="100%" preserveAspectRatio="none" style={{ flex: 1 }}>
-        <polyline points="0,96 64,80 128,84 192,52 256,40 320,20" fill="none" stroke="var(--magenta)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        {[[0,96],[64,80],[128,84],[192,52],[256,40],[320,20]].map(([x,y],i)=>(
-          <circle key={i} cx={x} cy={y} r="4" fill="#fff" stroke="var(--ink)" strokeWidth="1.5" />
-        ))}
-      </svg>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--fh)', fontWeight: 600, fontSize: 12, color: 'var(--ink-70)', marginTop: 8 }}>
-        <span>Session 1</span><span>Session 6</span>
-      </div>
-    </div>
-  )
+function Photo({ src, alt }: { src: string; alt: string }) {
+  return <img src={src} alt={alt} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
 }
 
 /* ── Icons ───────────────────────────────────────────────────────────────── */
