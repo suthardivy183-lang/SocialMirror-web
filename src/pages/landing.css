@@ -1,0 +1,213 @@
+/* ============================================================================
+   SocialMirror — Landing page ("Reflect" visual system)
+   A bold neo-editorial world: magenta hero, periwinkle sections, black-outlined
+   bento cards, heavy grotesque headings against soft rounded display type.
+   Fully scoped under .rl so it never touches the app's glass system.
+   ========================================================================== */
+
+.rl {
+  --ink: #0B0B0D;
+  --ink-70: rgba(11, 11, 13, 0.66);
+  --magenta: #F23DFA;
+  --magenta-deep: #D416DB;
+  --peri: #E2E9FF;
+  --peri-deep: #D4DEFF;
+  --paper: #EFEEEA;
+  --blue: #C5D2FF;
+  --blue-ink: #10204F;
+  --card: #FFFFFF;
+  --line: #0B0B0D;
+
+  --r-lg: 22px;
+  --r-md: 16px;
+  --r-btn: 8px;
+  --shadow-soft: 0 2px 3px rgba(11, 11, 13, 0.12);
+  --shadow-card: 0 18px 40px rgba(11, 11, 13, 0.10);
+
+  --fh: 'Space Grotesk', system-ui, sans-serif;   /* headings / eyebrows / ui */
+  --fd: 'Quicksand', system-ui, sans-serif;        /* rounded hero display */
+  --fb: 'Inter', system-ui, sans-serif;            /* body */
+
+  font-family: var(--fb);
+  color: var(--ink);
+  background: var(--peri);
+  min-height: 100vh;
+  letter-spacing: 0;
+  overflow-x: hidden;
+}
+
+.rl-wrap { max-width: 1240px; margin: 0 auto; padding-inline: clamp(18px, 4vw, 48px); }
+
+/* ---- Type ---------------------------------------------------------------- */
+.rl-eyebrow {
+  font-family: var(--fh);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.rl-h1 {
+  font-family: var(--fd);
+  font-weight: 500;
+  font-size: clamp(2.9rem, 8vw, 6rem);
+  line-height: 1.03;
+  letter-spacing: -0.01em;
+}
+.rl-h2 {
+  font-family: var(--fh);
+  font-weight: 700;
+  font-size: clamp(2.1rem, 5vw, 3.7rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+.rl-h3 {
+  font-family: var(--fh);
+  font-weight: 700;
+  font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+}
+.rl-lead { font-size: clamp(1rem, 1.4vw, 1.18rem); line-height: 1.6; color: var(--ink-70); }
+.rl-body { font-size: 1rem; line-height: 1.6; color: var(--ink-70); }
+.rl-kicker { text-align: center; }
+
+/* ---- Buttons ------------------------------------------------------------- */
+.rl-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--fh); font-weight: 600; font-size: 15px;
+  padding: 12px 22px; border-radius: var(--r-btn);
+  border: 1.5px solid var(--line); background: var(--card); color: var(--ink);
+  box-shadow: var(--shadow-soft);
+  transition: transform 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms, background 140ms;
+}
+.rl-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(11,11,13,0.18); }
+.rl-btn:active { transform: translateY(0); }
+.rl-btn--primary { background: var(--blue); color: var(--blue-ink); }
+.rl-btn--dark { background: var(--ink); color: #fff; border-color: var(--ink); }
+.rl-btn--ghost { background: transparent; box-shadow: none; }
+.rl-btn--onmag { background: #fff; border-color: #fff; }
+.rl-btn--onmag.rl-btn--primary { background: var(--blue); border-color: var(--blue); }
+
+.rl-arrow {
+  font-family: var(--fh); font-weight: 600; font-size: 15px; color: var(--ink);
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: gap 160ms cubic-bezier(0.16,1,0.3,1);
+}
+.rl-arrow svg { transition: transform 160ms cubic-bezier(0.16,1,0.3,1); }
+a:hover > .rl-arrow svg, .rl-arrow:hover svg { transform: translateX(4px); }
+
+/* ---- Nav ----------------------------------------------------------------- */
+.rl-nav {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--peri);
+  border-bottom: 1.5px solid var(--line);
+}
+.rl-nav-inner { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+.rl-nav-links { display: flex; align-items: center; gap: 28px; }
+.rl-nav-links a { font-family: var(--fb); font-weight: 500; font-size: 15px; color: var(--ink); opacity: 0.9; }
+.rl-nav-links a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
+.rl-brand { display: inline-flex; align-items: center; gap: 9px; font-family: var(--fh); font-weight: 700; font-size: 19px; letter-spacing: -0.02em; }
+.rl-brand-dot { width: 20px; height: 20px; border-radius: 6px; background: var(--magenta); display: grid; place-items: center; box-shadow: 0 0 0 1.5px var(--line); }
+
+/* ---- Hero ---------------------------------------------------------------- */
+.rl-hero { background: var(--magenta); border-bottom: 1.5px solid var(--line); }
+.rl-hero-inner { text-align: center; padding: clamp(52px, 8vw, 104px) 0 clamp(40px, 6vw, 72px); }
+.rl-hero h1 { color: #fff; max-width: 16ch; margin: 0 auto; }
+.rl-hero p { color: rgba(255,255,255,0.92); max-width: 560px; margin: clamp(20px,3vw,30px) auto 0; font-size: clamp(1rem, 1.4vw, 1.15rem); line-height: 1.6; }
+.rl-hero-cta { display: flex; gap: 14px; justify-content: center; margin-top: 34px; flex-wrap: wrap; }
+.rl-hero-media {
+  margin: 0 auto; margin-bottom: clamp(-90px, -7vw, -70px);
+  background: var(--card); border: 1.5px solid var(--line); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card); overflow: hidden; max-width: 1000px;
+}
+
+/* ---- Section shells ------------------------------------------------------ */
+.rl-section { padding-block: clamp(72px, 9vw, 128px); }
+.rl-section--peri { background: var(--peri); }
+.rl-section--paper { background: var(--paper); border-block: 1.5px solid var(--line); }
+.rl-pad-top { padding-top: clamp(120px, 12vw, 168px); }  /* room for overlapping hero media */
+
+/* Split editorial row */
+.rl-split { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 5vw, 72px); align-items: center; }
+.rl-split-media {
+  aspect-ratio: 4 / 3; border-radius: var(--r-lg); border: 1.5px solid var(--line);
+  overflow: hidden; box-shadow: var(--shadow-card); background: var(--peri-deep);
+}
+.rl-ico {
+  width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center;
+  border: 1.5px solid var(--line); background: #fff; margin-bottom: 22px;
+}
+
+/* ---- Bento cards --------------------------------------------------------- */
+.rl-card {
+  background: var(--card); border: 1.5px solid var(--line); border-radius: var(--r-lg);
+  padding: clamp(24px, 2.4vw, 34px); display: flex; flex-direction: column;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), box-shadow 220ms;
+}
+.rl-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-card); }
+.rl-card .rl-arrow { margin-top: auto; padding-top: 22px; }
+.rl-card-tag { font-family: var(--fh); font-weight: 700; font-size: 12px; letter-spacing: 0.02em; color: var(--magenta-deep); margin-bottom: 10px; }
+
+.rl-bento-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: clamp(40px, 5vw, 64px); }
+.rl-bento-results { display: grid; grid-template-columns: 1fr 1.15fr; grid-template-rows: auto auto; gap: 20px; margin-top: clamp(40px, 5vw, 64px); }
+.rl-bento-results .rl-big { grid-row: span 2; }
+
+/* Visual fills for card media */
+.rl-viz { border-radius: var(--r-md); border: 1.5px solid var(--line); overflow: hidden; }
+.rl-viz--tall { min-height: 180px; }
+
+/* ---- CTA ----------------------------------------------------------------- */
+.rl-cta-card {
+  border: 1.5px solid var(--line); border-radius: var(--r-lg); background: var(--peri-deep);
+  text-align: center; padding: clamp(48px, 7vw, 96px) clamp(20px, 4vw, 40px);
+}
+.rl-cta-card .rl-hero-cta { margin-top: 30px; }
+
+/* ---- Footer -------------------------------------------------------------- */
+.rl-footer { background: var(--peri); border-top: 1.5px solid var(--line); }
+.rl-footer-top { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; padding-block: 40px; }
+.rl-footer-links { display: flex; gap: 26px; flex-wrap: wrap; }
+.rl-footer-links a { font-family: var(--fh); font-weight: 500; font-size: 15px; }
+.rl-footer-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.rl-footer-social { display: flex; gap: 16px; }
+.rl-footer-social a { display: grid; place-items: center; }
+.rl-footer-bottom { border-top: 1.5px solid var(--line); padding-block: 22px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-70); }
+
+/* ---- Mini product-preview visuals (built, not stock) --------------------- */
+.rl-mock { padding: clamp(18px, 2.4vw, 28px); background:
+  linear-gradient(180deg, #fff, #F7F8FF); }
+.rl-mock-row { display: grid; grid-template-columns: 74px 1fr; gap: 14px; align-items: start; padding: 12px 0; }
+.rl-mock-row + .rl-mock-row { border-top: 1px solid rgba(11,11,13,0.08); }
+.rl-spk { font-family: var(--fh); font-weight: 700; font-size: 13px; padding: 4px 9px; border-radius: 999px; border: 1.5px solid var(--line); white-space: nowrap; }
+.rl-spk--1 { background: #E8EBFF; }
+.rl-spk--2 { background: #FFE6FB; }
+.rl-mock-text { font-size: 14px; line-height: 1.5; color: var(--ink); }
+.rl-mock-text .fil { background: var(--magenta); color: #fff; border-radius: 4px; padding: 0 4px; font-weight: 600; }
+.rl-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.rl-chip { font-family: var(--fh); font-weight: 600; font-size: 12.5px; padding: 7px 12px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; display: inline-flex; gap: 7px; align-items: center; }
+.rl-chip b { color: var(--magenta-deep); }
+
+.rl-bar-track { height: 12px; border-radius: 999px; border: 1.5px solid var(--line); overflow: hidden; display: flex; background: #fff; }
+.rl-bar-fill { background: var(--magenta); }
+.rl-bar-fill.two { background: #C5D2FF; }
+
+/* waveform */
+.rl-wave { display: flex; align-items: center; gap: 4px; height: 100%; padding: 22px; }
+.rl-wave i { flex: 1; border-radius: 999px; background: var(--ink); display: block; }
+
+/* trend line box */
+.rl-trend { padding: 22px; display: flex; flex-direction: column; height: 100%; }
+
+/* ---- Responsive ---------------------------------------------------------- */
+@media (max-width: 900px) {
+  .rl-bento-3 { grid-template-columns: 1fr; }
+  .rl-bento-results { grid-template-columns: 1fr; }
+  .rl-bento-results .rl-big { grid-row: auto; }
+  .rl-split { grid-template-columns: 1fr; }
+  .rl-split-media { order: -1; }
+  .rl-nav-links { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rl *, .rl *::before, .rl *::after { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+}
