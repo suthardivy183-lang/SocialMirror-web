@@ -8,38 +8,37 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* ---- Base & atmosphere --------------------------------------------------- */
-  --bg: #ECEDF7;                 /* cool light base behind the glass */
+  /* ---- Base & atmosphere (neo-editorial: periwinkle + flat white) --------- */
+  --bg: #E2E9FF;                 /* periwinkle field */
   --bg-elevated: #FFFFFF;
 
-  /* Frosted surfaces (translucent — pair with .frost for the blur) */
-  --bg-card: rgba(255, 255, 255, 0.62);
-  --bg-input: rgba(255, 255, 255, 0.58);
-  --bg-subtle: rgba(120, 112, 196, 0.09);   /* inset tracks / tiles */
+  /* Flat solid surfaces */
+  --bg-card: #FFFFFF;
+  --bg-input: #FFFFFF;
+  --bg-subtle: #EDF1FF;                      /* inset tracks / tiles */
 
-  --border: rgba(126, 119, 170, 0.16);      /* subtle edge + dividers */
-  --border-strong: rgba(127, 119, 221, 0.34);
+  --border: rgba(11, 11, 13, 0.20);          /* crisp dark outline + dividers */
+  --border-strong: #0B0B0D;                  /* bold black outline */
 
-  /* ---- Brand (original purple) -------------------------------------------- */
-  --accent: #7F77DD;
-  --accent-hover: #6B63CC;
-  --accent-dim: rgba(127, 119, 221, 0.14);
-  --accent-soft: rgba(127, 119, 221, 0.06);
+  /* ---- Brand (magenta) ---------------------------------------------------- */
+  --accent: #D416DB;
+  --accent-hover: #B411BA;
+  --accent-dim: rgba(242, 61, 250, 0.13);
+  --accent-soft: rgba(242, 61, 250, 0.06);
   --accent-ink: #FFFFFF;
 
-  --text: #1E1E2A;
-  --text-mid: #54515F;
-  --muted: #7E7B8C;
-  --green: #1D9E75;
-  --red: #E25160;
+  --text: #0B0B0D;
+  --text-mid: #3B3B44;
+  --muted: #6C6C77;
+  --green: #12A150;
+  --red: #E5484D;
 
-  /* ---- Glass chrome / depth ----------------------------------------------- */
-  --nav-bg: rgba(255, 255, 255, 0.52);
-  --glass-blur: blur(22px) saturate(180%);
-  /* soft drop + bright inner top-edge = the glass tell */
-  --shadow-card: 0 8px 30px rgba(70, 60, 140, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  --shadow-pop: 0 22px 60px rgba(60, 50, 130, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --shadow-accent: 0 10px 26px rgba(127, 119, 221, 0.42);
+  /* ---- Chrome / depth (flat) ---------------------------------------------- */
+  --nav-bg: rgba(226, 233, 255, 0.82);
+  --glass-blur: blur(12px) saturate(130%);
+  --shadow-card: 0 6px 18px rgba(11, 11, 13, 0.07);
+  --shadow-pop: 0 18px 44px rgba(11, 11, 13, 0.14);
+  --shadow-accent: 0 8px 20px rgba(212, 22, 219, 0.34);
 
   /* ---- Radii (hierarchy, not one value) ----------------------------------- */
   --radius-card: 20px;
@@ -47,7 +46,7 @@
   --radius-pill: 999px;
 
   /* ---- Type ---------------------------------------------------------------- */
-  --font-display: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Hanken Grotesk', system-ui, sans-serif;
   --font-body: 'Hanken Grotesk', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 
@@ -78,16 +77,14 @@ body::before {
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(46% 40% at 12% 4%, rgba(127, 119, 221, 0.42), transparent 60%),
-    radial-gradient(42% 38% at 92% 8%, rgba(96, 165, 235, 0.38), transparent 60%),
-    radial-gradient(50% 44% at 78% 92%, rgba(206, 124, 214, 0.30), transparent 62%),
-    radial-gradient(46% 40% at 16% 96%, rgba(104, 206, 196, 0.26), transparent 60%);
+    radial-gradient(55% 45% at 100% 0%, rgba(242, 61, 250, 0.07), transparent 60%),
+    radial-gradient(50% 42% at 0% 100%, rgba(60, 110, 255, 0.06), transparent 62%);
   pointer-events: none;
 }
 
 h1, .display {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.04;
 }
